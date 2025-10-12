@@ -1,0 +1,114 @@
+.
+├── README.md
+├── ASSUMPTIONS.md
+├── LICENSE
+├── Makefile
+├── .env.example
+├── .gitignore
+├── docs/
+│   ├── architecture.md
+│   ├── observability.md
+│   ├── troubleshooting.md
+│   ├── decisions/
+│   │   └── ADR-0001-technology-choices.md
+│   └── images/
+│       └── generate_diagrams.py
+├── infra/
+│   ├── bicep/
+│   │   ├── main.bicep
+│   │   ├── modules/
+│   │   │   ├── translator.bicep
+│   │   │   ├── keyvault.bicep
+│   │   │   ├── appservice.bicep
+│   │   │   ├── storage.bicep
+│   │   │   └── monitoring.bicep
+│   │   ├── parameters/
+│   │   │   ├── dev.bicepparam
+│   │   │   └── prod.bicepparam
+│   ├── scripts/
+│   │   ├── bootstrap.sh
+│   │   ├── bootstrap.ps1
+│   │   ├── cleanup.sh
+│   │   └── cleanup.ps1
+├── src/
+│   ├── backend/
+│   │   ├── app/
+│   │   │   ├── __init__.py
+│   │   │   ├── main.py
+│   │   │   ├── config.py
+│   │   │   ├── api/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── routes.py
+│   │   │   │   └── models.py
+│   │   │   ├── services/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── translator_service.py
+│   │   │   │   └── telemetry_service.py
+│   │   │   └── middleware/
+│   │   │       ├── __init__.py
+│   │   │       └── logging.py
+│   │   ├── requirements.txt
+│   │   ├── requirements-dev.txt
+│   │   ├── Dockerfile
+│   │   └── .dockerignore
+│   ├── frontend/
+│   │   ├── package.json
+│   │   ├── package-lock.json
+│   │   ├── vite.config.ts
+│   │   ├── tsconfig.json
+│   │   ├── tsconfig.node.json
+│   │   ├── index.html
+│   │   ├── .eslintrc.cjs
+│   │   ├── .prettierrc
+│   │   ├── public/
+│   │   │   └── favicon.ico
+│   │   └── src/
+│   │       ├── main.tsx
+│   │       ├── App.tsx
+│   │       ├── App.css
+│   │       ├── vite-env.d.ts
+│   │       ├── i18n/
+│   │       │   ├── config.ts
+│   │       │   └── locales/
+│   │       │       ├── en.json
+│   │       │       └── es.json
+│   │       ├── components/
+│   │       │   ├── TranslatorForm.tsx
+│   │       │   ├── LanguageSelector.tsx
+│   │       │   ├── TranslationResult.tsx
+│   │       │   └── ErrorBoundary.tsx
+│   │       ├── services/
+│   │       │   ├── api.ts
+│   │       │   └── telemetry.ts
+│   │       └── types/
+│   │           └── translator.ts
+│   └── shared/
+│       └── types.ts
+├── data/
+│   ├── samples/
+│   │   ├── sample_texts.json
+│   │   └── languages.json
+│   └── ingestion/
+│       ├── load_samples.py
+│       └── requirements.txt
+├── notebooks/
+│   └── e2e_test_cases.ipynb
+├── tests/
+│   ├── backend/
+│   │   ├── __init__.py
+│   │   ├── conftest.py
+│   │   ├── test_routes.py
+│   │   └── test_translator_service.py
+│   └── frontend/
+│       ├── setup.ts
+│       └── App.test.tsx
+├── .github/
+│   └── workflows/
+│       ├── ci.yml
+│       ├── deploy-dev.yml
+│       └── deploy-prod.yml
+├── .devcontainer/
+│   ├── devcontainer.json
+│   └── Dockerfile
+└── docker-compose.yml
+

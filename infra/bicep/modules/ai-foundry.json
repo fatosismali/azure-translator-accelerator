@@ -1,0 +1,119 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.31.34.60546",
+      "templateHash": "8952693026022859849"
+    }
+  },
+  "parameters": {
+    "aiFoundryName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the AI Foundry resource"
+      }
+    },
+    "location": {
+      "type": "string",
+      "metadata": {
+        "description": "Location for the AI Foundry resource"
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {},
+      "metadata": {
+        "description": "Tags for the resource"
+      }
+    },
+    "sku": {
+      "type": "string",
+      "defaultValue": "S0",
+      "metadata": {
+        "description": "SKU for AI Foundry (S0 for standard)"
+      }
+    },
+    "deployGpt4oMini": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Deploy GPT-4o-mini model"
+      }
+    },
+    "gpt4oMiniCapacity": {
+      "type": "int",
+      "defaultValue": 10,
+      "metadata": {
+        "description": "GPT-4o-mini deployment capacity (in thousands of tokens per minute)"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2023-10-01-preview",
+      "name": "[parameters('aiFoundryName')]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "kind": "AIServices",
+      "sku": {
+        "name": "[parameters('sku')]"
+      },
+      "properties": {
+        "customSubDomainName": "[parameters('aiFoundryName')]",
+        "publicNetworkAccess": "Enabled",
+        "networkAcls": {
+          "defaultAction": "Allow",
+          "ipRules": [],
+          "virtualNetworkRules": []
+        }
+      }
+    },
+    {
+      "condition": "[parameters('deployGpt4oMini')]",
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2023-10-01-preview",
+      "name": "[format('{0}/{1}', parameters('aiFoundryName'), 'gpt-4o-mini')]",
+      "sku": {
+        "name": "Standard",
+        "capacity": "[parameters('gpt4oMiniCapacity')]"
+      },
+      "properties": {
+        "model": {
+          "format": "OpenAI",
+          "name": "gpt-4o-mini",
+          "version": "2024-07-18"
+        },
+        "versionUpgradeOption": "OnceNewDefaultVersionAvailable",
+        "raiPolicyName": "Microsoft.Default"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiFoundryName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "aiFoundryId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiFoundryName'))]"
+    },
+    "aiFoundryName": {
+      "type": "string",
+      "value": "[parameters('aiFoundryName')]"
+    },
+    "aiFoundryEndpoint": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('aiFoundryName')), '2023-10-01-preview').endpoint]"
+    },
+    "aiFoundryPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('aiFoundryName')), '2023-10-01-preview', 'full').identity.principalId]"
+    },
+    "gpt4oMiniDeploymentName": {
+      "type": "string",
+      "value": "[if(parameters('deployGpt4oMini'), 'gpt-4o-mini', '')]"
+    }
+  }
+}

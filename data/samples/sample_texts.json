@@ -1,0 +1,63 @@
+[
+  {
+    "id": 1,
+    "text": "Hello, world! This is a test of the Azure Translator service.",
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "id": 2,
+    "text": "The quick brown fox jumps over the lazy dog.",
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "id": 3,
+    "text": "Welcome to our translation service. We support over 100 languages.",
+    "language": "en",
+    "category": "greeting"
+  },
+  {
+    "id": 4,
+    "text": "Azure AI provides powerful translation capabilities for your applications.",
+    "language": "en",
+    "category": "technical"
+  },
+  {
+    "id": 5,
+    "text": "Bonjour le monde! Ceci est un test du service Azure Translator.",
+    "language": "fr",
+    "category": "general"
+  },
+  {
+    "id": 6,
+    "text": "Hola mundo! Esta es una prueba del servicio Azure Translator.",
+    "language": "es",
+    "category": "general"
+  },
+  {
+    "id": 7,
+    "text": "Hallo Welt! Dies ist ein Test des Azure Translator-Dienstes.",
+    "language": "de",
+    "category": "general"
+  },
+  {
+    "id": 8,
+    "text": "こんにちは世界！これはAzure Translatorサービスのテストです。",
+    "language": "ja",
+    "category": "general"
+  },
+  {
+    "id": 9,
+    "text": "مرحبا بالعالم! هذا اختبار لخدمة Azure Translator.",
+    "language": "ar",
+    "category": "general"
+  },
+  {
+    "id": 10,
+    "text": "你好世界！这是Azure Translator服务的测试。",
+    "language": "zh-Hans",
+    "category": "general"
+  }
+]
+

@@ -1,0 +1,137 @@
+name: Deploy to Dev
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  ENVIRONMENT: dev
+  AZURE_REGION: westeurope
+  RESOURCE_PREFIX: translator
+
+jobs:
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    outputs:
+      backend_app_name: ${{ steps.deploy.outputs.backend_app_name }}
+      frontend_app_name: ${{ steps.deploy.outputs.frontend_app_name }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Deploy Bicep
+        id: deploy
+        run: |
+          DEPLOYMENT_NAME="translator-dev-$(date +%Y%m%d-%H%M%S)"
+          
+          az deployment group create \
+            --name "$DEPLOYMENT_NAME" \
+            --resource-group "translator-dev-rg" \
+            --template-file infra/bicep/main.bicep \
+            --parameters infra/bicep/parameters/dev.bicepparam \
+            --query "properties.outputs" \
+            --output json > deployment_output.json
+          
+          BACKEND_APP=$(jq -r '.backendAppName.value' deployment_output.json)
+          FRONTEND_APP=$(jq -r '.frontendAppName.value' deployment_output.json)
+          
+          echo "backend_app_name=$BACKEND_APP" >> $GITHUB_OUTPUT
+          echo "frontend_app_name=$FRONTEND_APP" >> $GITHUB_OUTPUT
+          
+          echo "✓ Infrastructure deployed"
+
+  deploy-backend:
+    name: Deploy Backend
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Deploy to App Service
+        run: |
+          cd src/backend
+          zip -r app.zip app/ requirements.txt
+          
+          az webapp deployment source config-zip \
+            --resource-group "translator-dev-rg" \
+            --name "${{ needs.deploy-infrastructure.outputs.backend_app_name }}" \
+            --src app.zip
+          
+          echo "✓ Backend deployed"
+
+  deploy-frontend:
+    name: Deploy Frontend
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Build frontend
+        run: |
+          cd src/frontend
+          npm ci
+          npm run build
+      
+      - name: Deploy to App Service
+        run: |
+          cd src/frontend/dist
+          zip -r ../dist.zip .
+          cd ..
+          
+          az webapp deployment source config-zip \
+            --resource-group "translator-dev-rg" \
+            --name "${{ needs.deploy-infrastructure.outputs.frontend_app_name }}" \
+            --src dist.zip
+          
+          echo "✓ Frontend deployed"
+
+  smoke-tests:
+    name: Smoke Tests
+    needs: [deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Wait for deployment
+        run: sleep 60
+      
+      - name: Health check
+        run: |
+          BACKEND_URL="https://${{ needs.deploy-infrastructure.outputs.backend_app_name }}.azurewebsites.net"
+          
+          curl -f "$BACKEND_URL/health" || exit 1
+          echo "✓ Backend health check passed"
+          
+          curl -f "$BACKEND_URL/api/v1/languages" || exit 1
+          echo "✓ Languages endpoint check passed"
+

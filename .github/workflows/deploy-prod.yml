@@ -1,0 +1,139 @@
+name: Deploy to Production
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  ENVIRONMENT: prod
+  AZURE_REGION: westeurope
+  RESOURCE_PREFIX: translator
+
+jobs:
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      backend_app_name: ${{ steps.deploy.outputs.backend_app_name }}
+      frontend_app_name: ${{ steps.deploy.outputs.frontend_app_name }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS_PROD }}
+      
+      - name: Deploy Bicep
+        id: deploy
+        run: |
+          DEPLOYMENT_NAME="translator-prod-$(date +%Y%m%d-%H%M%S)"
+          
+          az deployment group create \
+            --name "$DEPLOYMENT_NAME" \
+            --resource-group "translator-prod-rg" \
+            --template-file infra/bicep/main.bicep \
+            --parameters infra/bicep/parameters/prod.bicepparam \
+            --query "properties.outputs" \
+            --output json > deployment_output.json
+          
+          BACKEND_APP=$(jq -r '.backendAppName.value' deployment_output.json)
+          FRONTEND_APP=$(jq -r '.frontendAppName.value' deployment_output.json)
+          
+          echo "backend_app_name=$BACKEND_APP" >> $GITHUB_OUTPUT
+          echo "frontend_app_name=$FRONTEND_APP" >> $GITHUB_OUTPUT
+
+  deploy-backend-staging:
+    name: Deploy Backend to Staging
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS_PROD }}
+      
+      - name: Deploy to staging slot
+        run: |
+          cd src/backend
+          zip -r app.zip app/ requirements.txt
+          
+          az webapp deployment source config-zip \
+            --resource-group "translator-prod-rg" \
+            --name "${{ needs.deploy-infrastructure.outputs.backend_app_name }}" \
+            --slot staging \
+            --src app.zip
+
+  smoke-test-staging:
+    name: Smoke Test Staging
+    needs: [deploy-infrastructure, deploy-backend-staging]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for deployment
+        run: sleep 60
+      
+      - name: Health check
+        run: |
+          STAGING_URL="https://${{ needs.deploy-infrastructure.outputs.backend_app_name }}-staging.azurewebsites.net"
+          curl -f "$STAGING_URL/health" || exit 1
+
+  swap-slots:
+    name: Swap to Production
+    needs: [deploy-infrastructure, smoke-test-staging]
+    runs-on: ubuntu-latest
+    environment: production-swap
+    steps:
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS_PROD }}
+      
+      - name: Swap slots
+        run: |
+          az webapp deployment slot swap \
+            --resource-group "translator-prod-rg" \
+            --name "${{ needs.deploy-infrastructure.outputs.backend_app_name }}" \
+            --slot staging \
+            --target-slot production
+          
+          echo "✓ Swapped to production"
+
+  deploy-frontend:
+    name: Deploy Frontend
+    needs: [deploy-infrastructure, swap-slots]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS_PROD }}
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Build and deploy
+        run: |
+          cd src/frontend
+          npm ci
+          npm run build
+          cd dist
+          zip -r ../dist.zip .
+          cd ..
+          
+          az webapp deployment source config-zip \
+            --resource-group "translator-prod-rg" \
+            --name "${{ needs.deploy-infrastructure.outputs.frontend_app_name }}" \
+            --src dist.zip
+

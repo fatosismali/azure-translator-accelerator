@@ -1,0 +1,57 @@
+{
+  "app": {
+    "title": "Azure Translator Accelerator",
+    "subtitle": "Real-time translation powered by Azure AI"
+  },
+  "translator": {
+    "inputPlaceholder": "Enter text to translate...",
+    "sourceLang": "Source Language",
+    "targetLang": "Target Language(s)",
+    "autoDetect": "Auto-detect",
+    "translate": "Translate",
+    "translating": "Translating...",
+    "clear": "Clear",
+    "swap": "Swap Languages",
+    "detectLanguage": "Detect Language",
+    "detecting": "Detecting...",
+    "copyResult": "Copy Result",
+    "copied": "Copied!",
+    "characterCount": "{{count}} / 50,000 characters"
+  },
+  "languages": {
+    "en": "English",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "it": "Italian",
+    "pt": "Portuguese",
+    "ru": "Russian",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "zh-Hans": "Chinese (Simplified)",
+    "ar": "Arabic",
+    "hi": "Hindi"
+  },
+  "results": {
+    "title": "Translation Results",
+    "detected": "Detected Language",
+    "confidence": "Confidence",
+    "noResults": "No results yet. Enter text and click Translate.",
+    "error": "Translation failed. Please try again."
+  },
+  "errors": {
+    "networkError": "Network error. Please check your connection.",
+    "apiError": "API error. Please try again later.",
+    "invalidInput": "Invalid input. Please check your text.",
+    "quotaExceeded": "Translation quota exceeded. Please try again later.",
+    "textTooLong": "Text is too long (max 50,000 characters).",
+    "noTargetLanguage": "Please select at least one target language."
+  },
+  "footer": {
+    "poweredBy": "Powered by Azure AI Translator",
+    "version": "Version {{version}}",
+    "docs": "Documentation",
+    "github": "GitHub"
+  }
+}
+

@@ -1,0 +1,205 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  lint-backend:
+    name: Lint Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          cd src/backend
+          pip install -r requirements.txt -r requirements-dev.txt
+      
+      - name: Run ruff
+        run: |
+          cd src/backend
+          ruff check app/ tests/
+      
+      - name: Run mypy
+        run: |
+          cd src/backend
+          mypy app/
+        continue-on-error: true
+
+  test-backend:
+    name: Test Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          cd src/backend
+          pip install -r requirements.txt -r requirements-dev.txt
+      
+      - name: Run tests
+        run: |
+          cd src/backend
+          pytest tests/ -v --cov=app --cov-report=xml --cov-report=html
+        env:
+          AZURE_TRANSLATOR_KEY: ${{ secrets.AZURE_TRANSLATOR_KEY || 'test-key' }}
+          AZURE_TRANSLATOR_REGION: westeurope
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./src/backend/coverage.xml
+          flags: backend
+        if: success()
+
+  lint-frontend:
+    name: Lint Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/frontend/package-lock.json
+      
+      - name: Install dependencies
+        run: |
+          cd src/frontend
+          npm ci
+      
+      - name: Run linter
+        run: |
+          cd src/frontend
+          npm run lint
+      
+      - name: Check formatting
+        run: |
+          cd src/frontend
+          npx prettier --check "src/**/*.{ts,tsx,css}"
+
+  test-frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/frontend/package-lock.json
+      
+      - name: Install dependencies
+        run: |
+          cd src/frontend
+          npm ci
+      
+      - name: Run tests
+        run: |
+          cd src/frontend
+          npm test
+      
+      - name: Build
+        run: |
+          cd src/frontend
+          npm run build
+
+  validate-infra:
+    name: Validate Infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Azure CLI
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+        if: github.event_name == 'push'
+      
+      - name: Install Bicep
+        run: az bicep install
+      
+      - name: Validate Bicep templates
+        run: |
+          cd infra/bicep
+          az bicep build --file main.bicep
+          echo "✓ Bicep templates are valid"
+      
+      - name: Bicep lint
+        run: |
+          cd infra/bicep
+          az bicep lint --file main.bicep
+
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/backend
+          file: ./src/backend/Dockerfile
+          push: false
+          tags: translator-backend:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Build frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/frontend
+          file: ./src/frontend/Dockerfile
+          target: production
+          push: false
+          tags: translator-frontend:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+        if: always()
+

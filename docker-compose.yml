@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+    container_name: translator-backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Azure Translator
+      - AZURE_TRANSLATOR_KEY=${AZURE_TRANSLATOR_KEY}
+      - AZURE_TRANSLATOR_REGION=${AZURE_TRANSLATOR_REGION:-westeurope}
+      - AZURE_TRANSLATOR_ENDPOINT=${AZURE_TRANSLATOR_ENDPOINT:-https://api.cognitive.microsofttranslator.com}
+      # AI Foundry (optional for LLM)
+      - AZURE_AI_FOUNDRY_ENDPOINT=${AZURE_AI_FOUNDRY_ENDPOINT:-}
+      - AZURE_AI_FOUNDRY_KEY=${AZURE_AI_FOUNDRY_KEY:-}
+      - GPT4O_MINI_DEPLOYMENT_NAME=${GPT4O_MINI_DEPLOYMENT_NAME:-gpt-4o-mini}
+      
+      # Application
+      - APP_NAME=translator-accelerator
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+      - DEBUG=true
+      
+      # API
+      - API_V1_PREFIX=/api/v1
+      - BACKEND_CORS_ORIGINS=["http://localhost:3000","http://localhost:5173"]
+      
+      # Features
+      - ENABLE_TELEMETRY=false
+      - ENABLE_CACHING=false
+      - ENABLE_TRANSLITERATION=true
+      - ENABLE_DICTIONARY=true
+      
+      # Optional: Storage and telemetry (if configured)
+      - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING:-}
+      - APPLICATIONINSIGHTS_CONNECTION_STRING=${APPLICATIONINSIGHTS_CONNECTION_STRING:-}
+    volumes:
+      - ./src/backend/app:/app/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - translator-network
+
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: translator-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+      - VITE_APPINSIGHTS_CONNECTION_STRING=${APPLICATIONINSIGHTS_CONNECTION_STRING:-}
+    volumes:
+      - ./src/frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - translator-network
+
+networks:
+  translator-network:
+    driver: bridge
+
+volumes:
+  node_modules:
+

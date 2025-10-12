@@ -1,0 +1,57 @@
+{
+  "app": {
+    "title": "Acelerador de Azure Translator",
+    "subtitle": "Traducción en tiempo real impulsada por Azure AI"
+  },
+  "translator": {
+    "inputPlaceholder": "Ingrese el texto para traducir...",
+    "sourceLang": "Idioma de Origen",
+    "targetLang": "Idioma(s) de Destino",
+    "autoDetect": "Detección automática",
+    "translate": "Traducir",
+    "translating": "Traduciendo...",
+    "clear": "Limpiar",
+    "swap": "Intercambiar Idiomas",
+    "detectLanguage": "Detectar Idioma",
+    "detecting": "Detectando...",
+    "copyResult": "Copiar Resultado",
+    "copied": "¡Copiado!",
+    "characterCount": "{{count}} / 50,000 caracteres"
+  },
+  "languages": {
+    "en": "Inglés",
+    "es": "Español",
+    "fr": "Francés",
+    "de": "Alemán",
+    "it": "Italiano",
+    "pt": "Portugués",
+    "ru": "Ruso",
+    "ja": "Japonés",
+    "ko": "Coreano",
+    "zh-Hans": "Chino (Simplificado)",
+    "ar": "Árabe",
+    "hi": "Hindi"
+  },
+  "results": {
+    "title": "Resultados de Traducción",
+    "detected": "Idioma Detectado",
+    "confidence": "Confianza",
+    "noResults": "Sin resultados aún. Ingrese texto y haga clic en Traducir.",
+    "error": "La traducción falló. Por favor, inténtelo de nuevo."
+  },
+  "errors": {
+    "networkError": "Error de red. Por favor, verifique su conexión.",
+    "apiError": "Error de API. Por favor, inténtelo más tarde.",
+    "invalidInput": "Entrada inválida. Por favor, verifique su texto.",
+    "quotaExceeded": "Cuota de traducción excedida. Por favor, inténtelo más tarde.",
+    "textTooLong": "El texto es demasiado largo (máx. 50,000 caracteres).",
+    "noTargetLanguage": "Por favor, seleccione al menos un idioma de destino."
+  },
+  "footer": {
+    "poweredBy": "Impulsado por Azure AI Translator",
+    "version": "Versión {{version}}",
+    "docs": "Documentación",
+    "github": "GitHub"
+  }
+}
+
