@@ -2,8 +2,8 @@
 using '../main.bicep'
 
 param environment = 'dev'
-param resourcePrefix = 'translator'
-param translatorSku = 'F0' // Free tier
+// resourcePrefix is set via command line --parameters
+param translatorSku = 'S1' // Standard tier (changed from F0 due to free tier limit)
 param storageReplication = 'Standard_LRS'
 param appServiceSku = {
   name: 'F1'

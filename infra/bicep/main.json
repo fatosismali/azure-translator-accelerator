@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.31.34.60546",
-      "templateHash": "2410020935710077740"
+      "version": "0.38.33.27573",
+      "templateHash": "4715836528669946918"
     }
   },
   "parameters": {
@@ -103,7 +103,7 @@
       "apiVersion": "2023-07-01",
       "name": "[format('{0}/translator-api-key', variables('keyVaultName'))]",
       "properties": {
-        "value": "[reference(resourceId('Microsoft.Resources/deployments', 'translator-deployment'), '2022-09-01').outputs.primaryKey.value]",
+        "value": "[reference(resourceId('Microsoft.Resources/deployments', 'translator-deployment'), '2025-04-01').outputs.primaryKey.value]",
         "contentType": "text/plain",
         "attributes": {
           "enabled": true
@@ -134,7 +134,7 @@
       "apiVersion": "2023-07-01",
       "name": "[format('{0}/translator-endpoint', variables('keyVaultName'))]",
       "properties": {
-        "value": "[reference(resourceId('Microsoft.Resources/deployments', 'translator-deployment'), '2022-09-01').outputs.endpoint.value]",
+        "value": "[reference(resourceId('Microsoft.Resources/deployments', 'translator-deployment'), '2025-04-01').outputs.endpoint.value]",
         "contentType": "text/plain",
         "attributes": {
           "enabled": true
@@ -150,7 +150,7 @@
       "apiVersion": "2023-07-01",
       "name": "[format('{0}/storage-connection-string', variables('keyVaultName'))]",
       "properties": {
-        "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage-deployment'), '2022-09-01').outputs.connectionString.value]",
+        "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage-deployment'), '2025-04-01').outputs.connectionString.value]",
         "contentType": "text/plain",
         "attributes": {
           "enabled": true
@@ -166,7 +166,7 @@
       "apiVersion": "2023-07-01",
       "name": "[format('{0}/ai-foundry-endpoint', variables('keyVaultName'))]",
       "properties": {
-        "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2022-09-01').outputs.aiFoundryEndpoint.value]",
+        "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.aiFoundryEndpoint.value]",
         "contentType": "text/plain",
         "attributes": {
           "enabled": true
@@ -182,7 +182,7 @@
       "apiVersion": "2023-07-01",
       "name": "[format('{0}/ai-foundry-key', variables('keyVaultName'))]",
       "properties": {
-        "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2022-09-01').outputs.aiFoundryPrimaryKey.value]",
+        "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.aiFoundryPrimaryKey.value]",
         "contentType": "text/plain",
         "attributes": {
           "enabled": true
@@ -198,7 +198,7 @@
       "apiVersion": "2023-07-01",
       "name": "[format('{0}/gpt4o-mini-deployment-name', variables('keyVaultName'))]",
       "properties": {
-        "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2022-09-01').outputs.gpt4oMiniDeploymentName.value]",
+        "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.gpt4oMiniDeploymentName.value]",
         "contentType": "text/plain",
         "attributes": {
           "enabled": true
@@ -217,7 +217,7 @@
         "accessPolicies": [
           {
             "tenantId": "[subscription().tenantId]",
-            "objectId": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2022-09-01').outputs.backendIdentityPrincipalId.value]",
+            "objectId": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2025-04-01').outputs.backendIdentityPrincipalId.value]",
             "permissions": {
               "secrets": [
                 "get",
@@ -238,7 +238,7 @@
       "name": "[guid(resourceGroup().id, variables('backendAppName'), 'StorageBlobDataContributor')]",
       "properties": {
         "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
-        "principalId": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2022-09-01').outputs.backendIdentityPrincipalId.value]",
+        "principalId": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2025-04-01').outputs.backendIdentityPrincipalId.value]",
         "principalType": "ServicePrincipal"
       },
       "dependsOn": [
@@ -252,7 +252,7 @@
       "name": "[guid(resourceGroup().id, variables('backendAppName'), 'CognitiveServicesUser')]",
       "properties": {
         "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')]",
-        "principalId": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2022-09-01').outputs.backendIdentityPrincipalId.value]",
+        "principalId": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2025-04-01').outputs.backendIdentityPrincipalId.value]",
         "principalType": "ServicePrincipal"
       },
       "dependsOn": [
@@ -261,8 +261,22 @@
       ]
     },
     {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceGroup().id, variables('translatorName'), 'CognitiveServicesUser-AIFoundry')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')]",
+        "principalId": "[reference(resourceId('Microsoft.Resources/deployments', 'translator-deployment'), '2025-04-01').outputs.identityPrincipalId.value]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'ai-foundry-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'translator-deployment')]"
+      ]
+    },
+    {
       "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2022-09-01",
+      "apiVersion": "2025-04-01",
       "name": "translator-deployment",
       "properties": {
         "expressionEvaluationOptions": {
@@ -289,8 +303,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.31.34.60546",
-              "templateHash": "2585076070507400642"
+              "version": "0.38.33.27573",
+              "templateHash": "17490304533146475960"
             }
           },
           "parameters": {
@@ -380,6 +394,10 @@
             "customDomain": {
               "type": "string",
               "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('name')), '2023-05-01').endpoint]"
+            },
+            "identityPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('name')), '2023-05-01', 'full').identity.principalId]"
             }
           }
         }
@@ -387,7 +405,7 @@
     },
     {
       "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2022-09-01",
+      "apiVersion": "2025-04-01",
       "name": "ai-foundry-deployment",
       "properties": {
         "expressionEvaluationOptions": {
@@ -416,8 +434,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.31.34.60546",
-              "templateHash": "912271681954031469"
+              "version": "0.38.33.27573",
+              "templateHash": "5590025620733867286"
             }
           },
           "parameters": {
@@ -533,7 +551,7 @@
     },
     {
       "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2022-09-01",
+      "apiVersion": "2025-04-01",
       "name": "keyvault-deployment",
       "properties": {
         "expressionEvaluationOptions": {
@@ -569,8 +587,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.31.34.60546",
-              "templateHash": "13369493023750510738"
+              "version": "0.38.33.27573",
+              "templateHash": "15917266884666359589"
             }
           },
           "parameters": {
@@ -703,7 +721,7 @@
     },
     {
       "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2022-09-01",
+      "apiVersion": "2025-04-01",
       "name": "storage-deployment",
       "properties": {
         "expressionEvaluationOptions": {
@@ -737,8 +755,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.31.34.60546",
-              "templateHash": "3902038776308767678"
+              "version": "0.38.33.27573",
+              "templateHash": "18110376366846692618"
             }
           },
           "parameters": {
@@ -923,7 +941,7 @@
     },
     {
       "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2022-09-01",
+      "apiVersion": "2025-04-01",
       "name": "monitoring-deployment",
       "properties": {
         "expressionEvaluationOptions": {
@@ -951,8 +969,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.31.34.60546",
-              "templateHash": "5743372404855533926"
+              "version": "0.38.33.27573",
+              "templateHash": "3500051046318223863"
             }
           },
           "parameters": {
@@ -1074,7 +1092,7 @@
     },
     {
       "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2022-09-01",
+      "apiVersion": "2025-04-01",
       "name": "appservice-deployment",
       "properties": {
         "expressionEvaluationOptions": {
@@ -1101,13 +1119,13 @@
             "value": "[parameters('tags')]"
           },
           "appInsightsConnectionString": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2022-09-01').outputs.appInsightsConnectionString.value]"
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.appInsightsConnectionString.value]"
           },
           "appInsightsInstrumentationKey": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2022-09-01').outputs.appInsightsInstrumentationKey.value]"
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.appInsightsInstrumentationKey.value]"
           },
           "keyVaultName": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'keyvault-deployment'), '2022-09-01').outputs.name.value]"
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'keyvault-deployment'), '2025-04-01').outputs.name.value]"
           },
           "environment": {
             "value": "[parameters('environment')]"
@@ -1119,8 +1137,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.31.34.60546",
-              "templateHash": "11093602227873236434"
+              "version": "0.38.33.27573",
+              "templateHash": "18182964517166682873"
             }
           },
           "parameters": {
@@ -1456,11 +1474,11 @@
     },
     "translatorName": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'translator-deployment'), '2022-09-01').outputs.name.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'translator-deployment'), '2025-04-01').outputs.name.value]"
     },
     "translatorEndpoint": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'translator-deployment'), '2022-09-01').outputs.endpoint.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'translator-deployment'), '2025-04-01').outputs.endpoint.value]"
     },
     "translatorRegion": {
       "type": "string",
@@ -1468,67 +1486,67 @@
     },
     "aiFoundryName": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2022-09-01').outputs.aiFoundryName.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.aiFoundryName.value]"
     },
     "aiFoundryEndpoint": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2022-09-01').outputs.aiFoundryEndpoint.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.aiFoundryEndpoint.value]"
     },
     "gpt4oMiniDeploymentName": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2022-09-01').outputs.gpt4oMiniDeploymentName.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.gpt4oMiniDeploymentName.value]"
     },
     "keyVaultName": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'keyvault-deployment'), '2022-09-01').outputs.name.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'keyvault-deployment'), '2025-04-01').outputs.name.value]"
     },
     "keyVaultUri": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'keyvault-deployment'), '2022-09-01').outputs.uri.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'keyvault-deployment'), '2025-04-01').outputs.uri.value]"
     },
     "storageName": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage-deployment'), '2022-09-01').outputs.name.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage-deployment'), '2025-04-01').outputs.name.value]"
     },
     "storageAccountId": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage-deployment'), '2022-09-01').outputs.id.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage-deployment'), '2025-04-01').outputs.id.value]"
     },
     "backendAppName": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2022-09-01').outputs.backendAppName.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2025-04-01').outputs.backendAppName.value]"
     },
     "backendAppUrl": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2022-09-01').outputs.backendAppUrl.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2025-04-01').outputs.backendAppUrl.value]"
     },
     "frontendAppName": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2022-09-01').outputs.frontendAppName.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2025-04-01').outputs.frontendAppName.value]"
     },
     "frontendAppUrl": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2022-09-01').outputs.frontendAppUrl.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2025-04-01').outputs.frontendAppUrl.value]"
     },
     "appServicePlanName": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2022-09-01').outputs.appServicePlanName.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2025-04-01').outputs.appServicePlanName.value]"
     },
     "appInsightsName": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2022-09-01').outputs.appInsightsName.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.appInsightsName.value]"
     },
     "appInsightsInstrumentationKey": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2022-09-01').outputs.appInsightsInstrumentationKey.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.appInsightsInstrumentationKey.value]"
     },
     "appInsightsConnectionString": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2022-09-01').outputs.appInsightsConnectionString.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.appInsightsConnectionString.value]"
     },
     "logAnalyticsWorkspaceId": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2022-09-01').outputs.logAnalyticsWorkspaceId.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.logAnalyticsWorkspaceId.value]"
     },
     "deploymentSummary": {
       "type": "object",
@@ -1536,10 +1554,10 @@
         "resourceGroup": "[resourceGroup().name]",
         "environment": "[parameters('environment')]",
         "location": "[parameters('location')]",
-        "backendUrl": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2022-09-01').outputs.backendAppUrl.value]",
-        "frontendUrl": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2022-09-01').outputs.frontendAppUrl.value]",
-        "apiDocsUrl": "[format('{0}/docs', reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2022-09-01').outputs.backendAppUrl.value)]",
-        "appInsightsName": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2022-09-01').outputs.appInsightsName.value]"
+        "backendUrl": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2025-04-01').outputs.backendAppUrl.value]",
+        "frontendUrl": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2025-04-01').outputs.frontendAppUrl.value]",
+        "apiDocsUrl": "[format('{0}/docs', reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2025-04-01').outputs.backendAppUrl.value)]",
+        "appInsightsName": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.appInsightsName.value]"
       }
     }
   }

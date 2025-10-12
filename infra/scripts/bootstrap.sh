@@ -64,22 +64,68 @@ check_prerequisites() {
 
 # Parse arguments
 ENVIRONMENT="${1:-dev}"
-LOCATION="${2:-westeurope}"
-RESOURCE_PREFIX="${3:-translator}"
+LOCATION="${2:-uksouth}"
+RESOURCE_PREFIX="${3:-}"  # Empty by default to prompt user
+AUTO_APPROVE="false"  # Flag for non-interactive mode
+
+# Check for --yes flag in all arguments
+for arg in "$@"; do
+    if [[ "$arg" == "--yes" ]] || [[ "$arg" == "-y" ]]; then
+        AUTO_APPROVE="true"
+    fi
+done
 
 if [[ ! "$ENVIRONMENT" =~ ^(dev|prod)$ ]]; then
     print_error "Invalid environment. Use 'dev' or 'prod'"
-    echo "Usage: $0 <environment> [location] [resource-prefix]"
-    echo "Example: $0 dev westeurope translator"
+    echo "Usage: $0 <environment> [location] [resource-prefix] [--yes]"
+    echo "Example: $0 dev uksouth mycompany"
+    echo "Options:"
+    echo "  --yes, -y    Auto-approve all prompts (non-interactive mode)"
     exit 1
+fi
+
+print_header "Azure Translator Solution Accelerator - Bootstrap"
+
+# Prompt for resource prefix if not provided
+if [ -z "$RESOURCE_PREFIX" ]; then
+    echo ""
+    print_info "Resource prefix is used to name all Azure resources (e.g., storage accounts, app services)"
+    print_info "Requirements: 3-10 characters, lowercase letters and numbers only"
+    print_info "Example: 'contoso', 'acme', 'mycompany', 'fabrikam'"
+    echo ""
+    while true; do
+        read -p "Enter a unique resource prefix: " RESOURCE_PREFIX
+        
+        # Validate prefix
+        if [[ ! "$RESOURCE_PREFIX" =~ ^[a-z0-9]{3,10}$ ]]; then
+            print_error "Invalid prefix. Must be 3-10 characters, lowercase letters and numbers only."
+            continue
+        fi
+        
+        # Check if prefix is too common (optional safety check)
+        if [[ "$RESOURCE_PREFIX" =~ ^(test|demo|sample|translator)$ ]]; then
+            print_warning "Prefix '$RESOURCE_PREFIX' is very common and might conflict with existing resources."
+            if [ "$AUTO_APPROVE" = "false" ]; then
+                read -p "Continue anyway? (y/n) " -n 1 -r
+                echo
+                if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                    continue
+                fi
+            fi
+        fi
+        
+        print_success "Using resource prefix: $RESOURCE_PREFIX"
+        break
+    done
 fi
 
 RESOURCE_GROUP_NAME="${RESOURCE_PREFIX}-${ENVIRONMENT}-rg"
 DEPLOYMENT_NAME="${RESOURCE_PREFIX}-${ENVIRONMENT}-deployment-$(date +%Y%m%d-%H%M%S)"
 
-print_header "Azure Translator Solution Accelerator - Bootstrap"
+echo ""
 print_info "Environment: $ENVIRONMENT"
 print_info "Location: $LOCATION"
+print_info "Resource Prefix: $RESOURCE_PREFIX"
 print_info "Resource Group: $RESOURCE_GROUP_NAME"
 print_info "Deployment Name: $DEPLOYMENT_NAME"
 
@@ -102,14 +148,18 @@ SUBSCRIPTION_ID=$(az account show --query "id" -o tsv)
 print_info "Current subscription: $SUBSCRIPTION_NAME ($SUBSCRIPTION_ID)"
 
 # Confirm or select subscription
-read -p "Continue with this subscription? (y/n) " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    print_info "Listing available subscriptions..."
-    az account list --output table
-    read -p "Enter subscription ID: " SUB_ID
-    az account set --subscription "$SUB_ID"
-    print_success "Switched to subscription: $(az account show --query 'name' -o tsv)"
+if [ "$AUTO_APPROVE" = "true" ]; then
+    print_success "Auto-approved: Using current subscription"
+else
+    read -p "Continue with this subscription? (y/n) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        print_info "Listing available subscriptions..."
+        az account list --output table
+        read -p "Enter subscription ID: " SUB_ID
+        az account set --subscription "$SUB_ID"
+        print_success "Switched to subscription: $(az account show --query 'name' -o tsv)"
+    fi
 fi
 
 # Register required resource providers
@@ -138,11 +188,15 @@ done
 print_header "Creating Resource Group"
 if az group show --name "$RESOURCE_GROUP_NAME" &>/dev/null; then
     print_warning "Resource group $RESOURCE_GROUP_NAME already exists"
-    read -p "Continue with existing resource group? (y/n) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        print_error "Deployment cancelled"
-        exit 1
+    if [ "$AUTO_APPROVE" = "true" ]; then
+        print_success "Auto-approved: Using existing resource group"
+    else
+        read -p "Continue with existing resource group? (y/n) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            print_error "Deployment cancelled"
+            exit 1
+        fi
     fi
 else
     az group create \
@@ -176,30 +230,64 @@ print_success "Bicep template is valid"
 # Deploy infrastructure
 print_header "Deploying Infrastructure"
 print_warning "This will provision Azure resources and may incur costs."
-read -p "Proceed with deployment? (y/n) " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    print_error "Deployment cancelled"
-    exit 1
+if [ "$AUTO_APPROVE" = "true" ]; then
+    print_success "Auto-approved: Proceeding with deployment"
+else
+    read -p "Proceed with deployment? (y/n) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        print_error "Deployment cancelled"
+        exit 1
+    fi
 fi
 
 print_info "Starting deployment... This may take 5-10 minutes."
 print_info "Deployment name: $DEPLOYMENT_NAME"
 
-DEPLOYMENT_OUTPUT=$(az deployment group create \
+print_info "Deploying with Bicep template and parameter file..."
+
+set +e  # Don't exit on error immediately
+az deployment group create \
     --name "$DEPLOYMENT_NAME" \
     --resource-group "$RESOURCE_GROUP_NAME" \
     --template-file "$BICEP_FILE" \
     --parameters "$PARAM_FILE" \
-    --query "properties.outputs" \
-    --output json)
+    --parameters resourcePrefix="$RESOURCE_PREFIX" \
+    2>&1 | tee /tmp/az-deployment-error.log
 
-if [ $? -eq 0 ]; then
-    print_success "Deployment completed successfully!"
-else
-    print_error "Deployment failed. Check Azure Portal for details."
+DEPLOY_EXIT_CODE=${PIPESTATUS[0]}
+set -e  # Re-enable exit on error
+
+# If deployment failed with "content consumed" error, try to show the real error
+if [ $DEPLOY_EXIT_CODE -ne 0 ]; then
+    if grep -q "content for this response was already consumed" /tmp/az-deployment-error.log; then
+        print_warning "Azure CLI bug encountered. Running what-if to see actual error..."
+        az deployment group what-if \
+            --resource-group "$RESOURCE_GROUP_NAME" \
+            --template-file "$BICEP_FILE" \
+            --parameters "$PARAM_FILE" \
+            --parameters resourcePrefix="$RESOURCE_PREFIX" \
+            2>&1 || true
+    fi
+fi
+
+if [ $DEPLOY_EXIT_CODE -ne 0 ]; then
+    print_error "Deployment failed with exit code $DEPLOY_EXIT_CODE"
+    print_info "Check Azure Portal for detailed error messages"
+    print_info "Resource Group: $RESOURCE_GROUP_NAME"
+    print_info "Deployment Name: $DEPLOYMENT_NAME"
     exit 1
 fi
+
+print_success "Deployment completed successfully!"
+
+# Get deployment outputs separately
+print_info "Retrieving deployment outputs..."
+DEPLOYMENT_OUTPUT=$(az deployment group show \
+    --name "$DEPLOYMENT_NAME" \
+    --resource-group "$RESOURCE_GROUP_NAME" \
+    --query "properties.outputs" \
+    --output json)
 
 # Extract outputs
 print_header "Deployment Summary"

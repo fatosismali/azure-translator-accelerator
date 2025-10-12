@@ -2,7 +2,7 @@
 using '../main.bicep'
 
 param environment = 'prod'
-param resourcePrefix = 'translator'
+// resourcePrefix is set via command line --parameters
 param translatorSku = 'S1' // Standard tier
 param storageReplication = 'Standard_GRS'
 param appServiceSku = {
