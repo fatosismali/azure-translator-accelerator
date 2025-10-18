@@ -27,10 +27,13 @@ WORKDIR /app
 RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
 
-# Install runtime dependencies
+# Install runtime dependencies including Azure CLI
 RUN apt-get update && apt-get install -y \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    ca-certificates \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip3 install --no-cache-dir azure-cli --break-system-packages
 
 # Copy Python packages from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages

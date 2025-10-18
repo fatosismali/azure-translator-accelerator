@@ -1,0 +1,82 @@
+{
+  "description": "Example dictionary configuration for batch translation",
+  "use_cases": {
+    "preserve_terms": [
+      {
+        "term": "API",
+        "translation": "API",
+        "shouldTranslate": false,
+        "reason": "Keep technical acronym unchanged"
+      },
+      {
+        "term": "Azure Translator",
+        "translation": "Azure Translator",
+        "shouldTranslate": false,
+        "reason": "Product name should remain in English"
+      },
+      {
+        "term": "REST",
+        "translation": "REST",
+        "shouldTranslate": false,
+        "reason": "Technical standard name"
+      },
+      {
+        "term": "JSON",
+        "translation": "JSON",
+        "shouldTranslate": false,
+        "reason": "Data format acronym"
+      },
+      {
+        "term": "OAuth",
+        "translation": "OAuth",
+        "shouldTranslate": false,
+        "reason": "Authentication protocol name"
+      },
+      {
+        "term": "SDK",
+        "translation": "SDK",
+        "shouldTranslate": false,
+        "reason": "Software development kit acronym"
+      }
+    ],
+    "custom_translations": [
+      {
+        "term": "gpt-4o-mini",
+        "translation": "GPT-4o Mini",
+        "shouldTranslate": true,
+        "reason": "Standardize model name capitalization"
+      },
+      {
+        "term": "wordomatic",
+        "translation": "Diccionario Dinámico",
+        "shouldTranslate": true,
+        "reason": "Custom brand translation for Spanish",
+        "language": "es"
+      },
+      {
+        "term": "contoso",
+        "translation": "Contoso Corporation",
+        "shouldTranslate": true,
+        "reason": "Full company name expansion"
+      }
+    ]
+  },
+  "dictionary_for_ui": {
+    "API": "API",
+    "Azure Translator": "Azure Translator",
+    "REST": "REST",
+    "JSON": "JSON",
+    "OAuth": "OAuth",
+    "SDK": "SDK",
+    "gpt-4o-mini": "GPT-4o Mini",
+    "wordomatic": "Diccionario Dinámico",
+    "contoso": "Contoso Corporation"
+  },
+  "notes": [
+    "Terms marked 'shouldTranslate: false' will preserve the original term",
+    "Terms marked 'shouldTranslate: true' will use the custom translation",
+    "The UI checkbox 'Translate' corresponds to 'shouldTranslate'",
+    "Dictionary is case-insensitive but preserves original case in text"
+  ]
+}
+

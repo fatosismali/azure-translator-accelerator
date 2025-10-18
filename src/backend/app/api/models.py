@@ -262,6 +262,7 @@ class BatchJobRequest(BaseModel):
     target_language: str = Field(..., description="Target language code")
     source_language: Optional[str] = Field(default=None, description="Source language code (auto-detect if None)")
     prefix: Optional[str] = Field(default=None, description="Optional prefix to filter source files")
+    dictionary: Optional[Dict[str, str]] = Field(default=None, description="Custom dictionary terms for translation (term: translation)")
 
 
 class BatchJobResponse(BaseModel):

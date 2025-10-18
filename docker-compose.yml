@@ -34,11 +34,22 @@ services:
       - ENABLE_TRANSLITERATION=true
       - ENABLE_DICTIONARY=true
       
-      # Optional: Storage and telemetry (if configured)
-      - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING:-}
+      # Storage: Use Service Principal for Azure AD authentication (local dev)
+      # Comment out connection string, use account name with SP credentials
+      # - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING:-}
+      - AZURE_STORAGE_ACCOUNT_NAME=${AZURE_STORAGE_ACCOUNT_NAME:-}
+      
+      # Service Principal credentials for storage access
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID:-}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET:-}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID:-}
+      
+      # Optional: Telemetry
       - APPLICATIONINSIGHTS_CONNECTION_STRING=${APPLICATIONINSIGHTS_CONNECTION_STRING:-}
     volumes:
       - ./src/backend/app:/app/app
+      # Mount Azure CLI credentials from host
+      - ${HOME}/.azure:/root/.azure:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s

@@ -1,0 +1,102 @@
+{
+  "aiFoundryEndpoint": {
+    "type": "String",
+    "value": "https://ni60-dev-foundry-mtbqaxtiw2hzq.cognitiveservices.azure.com/"
+  },
+  "aiFoundryName": {
+    "type": "String",
+    "value": "ni60-dev-foundry-mtbqaxtiw2hzq"
+  },
+  "appInsightsConnectionString": {
+    "type": "String",
+    "value": "InstrumentationKey=92476b80-011d-486a-a4e7-08eec6b36083;IngestionEndpoint=https://uksouth-1.in.applicationinsights.azure.com/;LiveEndpoint=https://uksouth.livediagnostics.monitor.azure.com/;ApplicationId=a0fd516a-a369-4a5a-a711-8f9ec5f51751"
+  },
+  "appInsightsInstrumentationKey": {
+    "type": "String",
+    "value": "92476b80-011d-486a-a4e7-08eec6b36083"
+  },
+  "appInsightsName": {
+    "type": "String",
+    "value": "ni60-dev-ai"
+  },
+  "appServicePlanName": {
+    "type": "String",
+    "value": "ni60-dev-asp"
+  },
+  "backendAppName": {
+    "type": "String",
+    "value": "ni60-dev-api-mtbqaxtiw2hzq"
+  },
+  "backendAppUrl": {
+    "type": "String",
+    "value": "https://ni60-dev-api-mtbqaxtiw2hzq.azurewebsites.net"
+  },
+  "deploymentSummary": {
+    "type": "Object",
+    "value": {
+      "apiDocsUrl": "https://ni60-dev-api-mtbqaxtiw2hzq.azurewebsites.net/docs",
+      "appInsightsName": "ni60-dev-ai",
+      "backendUrl": "https://ni60-dev-api-mtbqaxtiw2hzq.azurewebsites.net",
+      "environment": "dev",
+      "frontendUrl": "https://ni60-dev-web-mtbqaxtiw2hzq.azurewebsites.net",
+      "location": "uksouth",
+      "resourceGroup": "ni60-dev-rg"
+    }
+  },
+  "environment": {
+    "type": "String",
+    "value": "dev"
+  },
+  "frontendAppName": {
+    "type": "String",
+    "value": "ni60-dev-web-mtbqaxtiw2hzq"
+  },
+  "frontendAppUrl": {
+    "type": "String",
+    "value": "https://ni60-dev-web-mtbqaxtiw2hzq.azurewebsites.net"
+  },
+  "gpt4oMiniDeploymentName": {
+    "type": "String",
+    "value": "gpt-4o-mini"
+  },
+  "keyVaultName": {
+    "type": "String",
+    "value": "ni60-dev-kv-mtbqaxtiw2hz"
+  },
+  "keyVaultUri": {
+    "type": "String",
+    "value": "https://ni60-dev-kv-mtbqaxtiw2hz.vault.azure.net/"
+  },
+  "location": {
+    "type": "String",
+    "value": "uksouth"
+  },
+  "logAnalyticsWorkspaceId": {
+    "type": "String",
+    "value": "/subscriptions/70df6e57-6415-415c-a8d9-1a147c26f2e3/resourceGroups/ni60-dev-rg/providers/Microsoft.OperationalInsights/workspaces/ni60-dev-logs"
+  },
+  "resourceGroupName": {
+    "type": "String",
+    "value": "ni60-dev-rg"
+  },
+  "storageAccountId": {
+    "type": "String",
+    "value": "/subscriptions/70df6e57-6415-415c-a8d9-1a147c26f2e3/resourceGroups/ni60-dev-rg/providers/Microsoft.Storage/storageAccounts/ni60devstmtbqaxtiw2hzq"
+  },
+  "storageName": {
+    "type": "String",
+    "value": "ni60devstmtbqaxtiw2hzq"
+  },
+  "translatorEndpoint": {
+    "type": "String",
+    "value": "https://api.cognitive.microsofttranslator.com/"
+  },
+  "translatorName": {
+    "type": "String",
+    "value": "ni60-dev-translator-mtbqaxtiw2hzq"
+  },
+  "translatorRegion": {
+    "type": "String",
+    "value": "uksouth"
+  }
+}

@@ -4,6 +4,7 @@ Batch translation service for processing files from blob storage.
 
 import logging
 import uuid
+import re
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from app.services.storage_service import StorageService
@@ -34,6 +35,40 @@ class BatchTranslationService:
         self.queue = queue_service
         self.translator = translator_service
         logger.info("Batch translation service initialized")
+    
+    def annotate_text_with_dictionary(self, text: str, dictionary: Dict[str, str]) -> str:
+        """
+        Annotate text with mstrans:dictionary tags for custom term translations.
+        
+        Based on Azure Translator dynamic dictionary feature:
+        https://learn.microsoft.com/azure/ai-services/translator/text-translation/how-to/use-dynamic-dictionary
+        
+        Args:
+            text: Source text to annotate
+            dictionary: Dictionary of term -> translation mappings
+            
+        Returns:
+            Annotated text with <mstrans:dictionary> tags
+        """
+        if not dictionary:
+            return text
+        
+        annotated_text = text
+        
+        # Sort dictionary terms by length (longest first) to avoid partial replacements
+        sorted_terms = sorted(dictionary.keys(), key=len, reverse=True)
+        
+        for term in sorted_terms:
+            translation = dictionary[term]
+            # Escape special regex characters in the term
+            escaped_term = re.escape(term)
+            # Create pattern that matches the term as a whole word (case-insensitive)
+            pattern = re.compile(rf'\b{escaped_term}\b', re.IGNORECASE)
+            # Replace with dictionary tag
+            replacement = f'<mstrans:dictionary translation="{translation}">{term}</mstrans:dictionary>'
+            annotated_text = pattern.sub(replacement, annotated_text)
+        
+        return annotated_text
 
     async def start_batch_job(
         self,
@@ -41,7 +76,8 @@ class BatchTranslationService:
         target_container: str,
         target_language: str,
         source_language: Optional[str] = None,
-        prefix: Optional[str] = None
+        prefix: Optional[str] = None,
+        dictionary: Optional[Dict[str, str]] = None
     ) -> Dict[str, Any]:
         """
         Start a batch translation job.
@@ -52,6 +88,7 @@ class BatchTranslationService:
             target_language: Target language code
             source_language: Optional source language code
             prefix: Optional prefix to filter source files
+            dictionary: Optional custom dictionary for term translations
             
         Returns:
             Job information dictionary
@@ -75,6 +112,10 @@ class BatchTranslationService:
                     'job_id': job_id,
                     'status': 'completed',
                     'total_files': 0,
+                    'source_container': source_container,
+                    'target_container': target_container,
+                    'target_language': target_language,
+                    'created_at': datetime.utcnow().isoformat(),
                     'message': 'No text files found in source container'
                 }
             
@@ -100,13 +141,19 @@ class BatchTranslationService:
                         failed_files += 1
                         continue
                     
+                    # Annotate text with dictionary terms if provided
+                    annotated_content = self.annotate_text_with_dictionary(content, dictionary) if dictionary else content
+                    
+                    if dictionary:
+                        logger.info(f"Applied {len(dictionary)} dictionary terms to {blob_name}")
+                    
                     # Extract filename for target paths
                     filename = blob_name.split('/')[-1]
                     
                     # Translate with NMT
                     try:
                         nmt_result = await self.translator.translate(
-                            text=content,
+                            text=annotated_content,
                             to=[target_language],
                             from_lang=source_language
                         )
@@ -124,7 +171,7 @@ class BatchTranslationService:
                     # Translate with LLM
                     try:
                         llm_result = await self.translator.translate_with_llm(
-                            text=content,
+                            text=annotated_content,
                             to=[target_language],
                             from_lang=source_language,
                             model="gpt-4o-mini"

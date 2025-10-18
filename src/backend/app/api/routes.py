@@ -658,7 +658,8 @@ async def start_batch_job(
             target_container=request.target_container,
             target_language=request.target_language,
             source_language=request.source_language,
-            prefix=request.prefix
+            prefix=request.prefix,
+            dictionary=request.dictionary
         )
         return BatchJobResponse(**result)
     except Exception as e:

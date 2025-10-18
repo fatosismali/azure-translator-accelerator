@@ -4,6 +4,13 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import translatorAPI from '../services/api'
 import { trackEvent } from '../services/telemetry'
 
+interface DictionaryEntry {
+  id: string
+  term: string
+  translation: string
+  shouldTranslate: boolean
+}
+
 export default function BatchTranslation() {
   const { t } = useTranslation()
   const [sourceContainer, setSourceContainer] = useState('')
@@ -12,6 +19,12 @@ export default function BatchTranslation() {
   const [sourceLanguage, setSourceLanguage] = useState('')
   const [jobStatus, setJobStatus] = useState<any>(null)
   const [jobId, setJobId] = useState<string | null>(null)
+  
+  // Dynamic Dictionary state
+  const [dictionaryEntries, setDictionaryEntries] = useState<DictionaryEntry[]>([])
+  const [newTerm, setNewTerm] = useState('')
+  const [newTranslation, setNewTranslation] = useState('')
+  const [shouldTranslate, setShouldTranslate] = useState(true)
 
   // Fetch containers
   const {
@@ -51,14 +64,43 @@ export default function BatchTranslation() {
     enabled: !!sourceContainer,
   })
 
+  // Dictionary management functions
+  const handleAddDictionaryEntry = () => {
+    if (!newTerm.trim()) return
+    
+    const entry: DictionaryEntry = {
+      id: Date.now().toString(),
+      term: newTerm.trim(),
+      translation: shouldTranslate ? newTranslation.trim() : newTerm.trim(),
+      shouldTranslate,
+    }
+    
+    setDictionaryEntries([...dictionaryEntries, entry])
+    setNewTerm('')
+    setNewTranslation('')
+    setShouldTranslate(true)
+  }
+
+  const handleRemoveDictionaryEntry = (id: string) => {
+    setDictionaryEntries(dictionaryEntries.filter(e => e.id !== id))
+  }
+
   // Start batch job mutation
   const startJobMutation = useMutation({
     mutationFn: async () => {
+      const dictionary = dictionaryEntries.length > 0
+        ? dictionaryEntries.reduce((acc, entry) => {
+            acc[entry.term] = entry.translation
+            return acc
+          }, {} as Record<string, string>)
+        : undefined
+      
       return translatorAPI.startBatchJob(
         sourceContainer,
         targetContainer,
         targetLanguage,
-        sourceLanguage || undefined
+        sourceLanguage || undefined,
+        dictionary
       )
     },
     onSuccess: (data) => {
@@ -256,9 +298,197 @@ export default function BatchTranslation() {
         </div>
       </div>
 
+      {/* Dynamic Dictionary */}
+      <div style={{ marginBottom: '2rem' }}>
+        <h3 style={{ marginBottom: '1rem' }}>Step 3: Custom Dictionary (Optional)</h3>
+        <p style={{ fontSize: '0.9rem', color: 'var(--gray-600)', marginBottom: '1rem' }}>
+          Define custom translations for specific terms. Terms will be wrapped with{' '}
+          <code style={{ background: 'var(--gray-100)', padding: '2px 4px', borderRadius: '3px' }}>
+            &lt;mstrans:dictionary&gt;
+          </code>{' '}
+          tags before translation.
+        </p>
+        
+        {/* Add Dictionary Entry Form */}
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: '2fr 2fr 1.5fr auto', 
+          gap: '0.75rem', 
+          marginBottom: '1rem',
+          alignItems: 'end'
+        }}>
+          <div>
+            <label htmlFor="new-term" style={{ fontSize: '0.875rem' }}>Source Term *</label>
+            <input
+              id="new-term"
+              type="text"
+              value={newTerm}
+              onChange={(e) => setNewTerm(e.target.value)}
+              placeholder="e.g., wordomatic"
+              style={{
+                width: '100%',
+                padding: '0.625rem',
+                border: '1px solid var(--gray-300)',
+                borderRadius: 'var(--border-radius)',
+                fontSize: '0.9rem',
+              }}
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="new-translation" style={{ fontSize: '0.875rem' }}>
+              Target Translation {!shouldTranslate && '(auto-filled)'}
+            </label>
+            <input
+              id="new-translation"
+              type="text"
+              value={newTranslation}
+              onChange={(e) => setNewTranslation(e.target.value)}
+              placeholder={shouldTranslate ? "e.g., Wordomatic" : "Same as source term"}
+              disabled={!shouldTranslate}
+              style={{
+                width: '100%',
+                padding: '0.625rem',
+                border: '1px solid var(--gray-300)',
+                borderRadius: 'var(--border-radius)',
+                fontSize: '0.9rem',
+                backgroundColor: shouldTranslate ? 'white' : 'var(--gray-100)',
+              }}
+            />
+          </div>
+          
+          <div>
+            <label style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              padding: '0.625rem',
+              background: 'var(--gray-100)',
+              borderRadius: 'var(--border-radius)',
+            }}>
+              <input
+                type="checkbox"
+                checked={shouldTranslate}
+                onChange={(e) => {
+                  setShouldTranslate(e.target.checked)
+                  if (!e.target.checked) {
+                    setNewTranslation(newTerm)
+                  } else {
+                    setNewTranslation('')
+                  }
+                }}
+                style={{ cursor: 'pointer' }}
+              />
+              <span>Translate</span>
+            </label>
+          </div>
+          
+          <button
+            onClick={handleAddDictionaryEntry}
+            disabled={!newTerm.trim()}
+            style={{
+              padding: '0.625rem 1rem',
+              background: 'var(--azure-blue)',
+              color: 'white',
+              border: 'none',
+              borderRadius: 'var(--border-radius)',
+              cursor: newTerm.trim() ? 'pointer' : 'not-allowed',
+              opacity: newTerm.trim() ? 1 : 0.5,
+              fontSize: '0.9rem',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            ➕ Add
+          </button>
+        </div>
+        
+        {/* Dictionary Entries List */}
+        {dictionaryEntries.length > 0 && (
+          <div style={{
+            border: '1px solid var(--gray-300)',
+            borderRadius: 'var(--border-radius)',
+            padding: '1rem',
+            background: 'white',
+          }}>
+            <div style={{ 
+              fontSize: '0.875rem', 
+              fontWeight: 600, 
+              marginBottom: '0.75rem',
+              color: 'var(--gray-700)' 
+            }}>
+              📚 Dictionary Entries ({dictionaryEntries.length})
+            </div>
+            
+            {dictionaryEntries.map((entry) => (
+              <div
+                key={entry.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '1rem',
+                  padding: '0.75rem',
+                  background: 'var(--gray-50)',
+                  borderRadius: 'var(--border-radius)',
+                  marginBottom: '0.5rem',
+                  fontSize: '0.9rem',
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <strong>{entry.term}</strong>
+                  {' → '}
+                  <span style={{ color: entry.shouldTranslate ? 'var(--azure-blue)' : 'var(--gray-600)' }}>
+                    {entry.translation}
+                  </span>
+                </div>
+                
+                <div style={{ 
+                  padding: '0.25rem 0.5rem',
+                  background: entry.shouldTranslate ? '#e0f2fe' : '#fef3c7',
+                  color: entry.shouldTranslate ? '#0369a1' : '#92400e',
+                  borderRadius: '12px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                }}>
+                  {entry.shouldTranslate ? '✓ Translate' : '⊘ Preserve'}
+                </div>
+                
+                <button
+                  onClick={() => handleRemoveDictionaryEntry(entry.id)}
+                  style={{
+                    padding: '0.375rem 0.75rem',
+                    background: '#fee2e2',
+                    color: '#991b1b',
+                    border: 'none',
+                    borderRadius: 'var(--border-radius)',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            
+            <div style={{
+              marginTop: '0.75rem',
+              padding: '0.75rem',
+              background: '#f0f9ff',
+              borderRadius: 'var(--border-radius)',
+              fontSize: '0.8rem',
+              color: '#0369a1',
+            }}>
+              💡 <strong>Tip:</strong> These terms will be automatically detected and annotated in all files before translation.
+              {' '}Terms marked "Preserve" will keep their original form in the translation.
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Start Job */}
       <div style={{ marginBottom: '2rem' }}>
-        <h3 style={{ marginBottom: '1rem' }}>Step 3: Start Batch Job</h3>
+        <h3 style={{ marginBottom: '1rem' }}>Step 4: Start Batch Job</h3>
         
         <button
           onClick={handleStartJob}

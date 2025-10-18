@@ -201,13 +201,15 @@ class TranslatorAPI {
     sourceContainer: string,
     targetContainer: string,
     targetLanguage: string,
-    sourceLanguage?: string
+    sourceLanguage?: string,
+    dictionary?: Record<string, string>
   ): Promise<any> {
     const response = await this.client.post('/batch/jobs', {
       source_container: sourceContainer,
       target_container: targetContainer,
       target_language: targetLanguage,
       source_language: sourceLanguage,
+      dictionary: dictionary,
     })
     return response.data
   }

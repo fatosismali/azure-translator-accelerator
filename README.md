@@ -1,376 +1,417 @@
-# Azure AI Translator Solution Accelerator
+# Azure Translator Solution Accelerator
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-A production-ready solution accelerator for Azure AI Translator Service with Neural Machine Translation (NMT) and LLM-powered translation (GPT-4o/GPT-4o-mini).
+A production-ready solution for deploying Azure Translator services with a modern web interface, batch processing capabilities, and dynamic dictionary support.
 
 ## ✨ Features
 
-- 🌍 **137+ Languages** - Translate between all Azure Translator supported languages
-- 🤖 **LLM Translation** - GPT-4o/mini powered translation with tone & context control
-- ⚖️ **Side-by-Side Compare** - Compare NMT vs LLM translations in real-time
-- 📖 **Dictionary Lookup** - Alternative translations with usage examples
-- 📦 **Batch Translation** - Process multiple files from Azure Storage
-- 🔐 **Secure by Default** - Managed Identity, Key Vault integration
-- 📊 **Monitoring** - Application Insights for telemetry and logging
+- **Multi-language Translation**: Support for 137+ languages with auto-detection
+- **Batch Processing**: Translate multiple files from Azure Blob Storage
+- **Dynamic Dictionary**: Custom terminology and term preservation
+- **Dual Translation Engine**: Compare Neural Machine Translation (NMT) vs LLM-based translation
+- **Modern UI**: React-based frontend with dark mode support
+- **RESTful API**: FastAPI backend with OpenAPI documentation
+- **Azure Native**: Managed Identity, Key Vault integration, Application Insights
 
 ---
 
-## 📋 Prerequisites
+## 🚀 Quick Start
 
-- **Azure Subscription** - [Create free account](https://azure.microsoft.com/free/)
-- **Azure CLI** - [Install](https://docs.microsoft.com/cli/azure/install-azure-cli) v2.50+
-- **Git** - For cloning the repository
+### Prerequisites
 
----
+- Azure subscription
+- Azure CLI installed and logged in (`az login`)
+- Python 3.11+
+- Node.js 18+ (for frontend)
+- Git
 
-## 🚀 Quick Start - Deploy to Azure
-
-Deploy your complete solution in 2 simple steps:
-
-### Step 1: Clone Repository
+### 1️⃣ Clone and Setup
 
 ```bash
 git clone <your-repo-url>
 cd azure-translator-accelerator
+
+# Create Python virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install backend dependencies
+pip install -r src/backend/requirements.txt
 ```
 
-### Step 2: Login to Azure
+### 2️⃣ Deploy to Azure
 
 ```bash
-az login
-az account set --subscription "<your-subscription-id>"
+# Deploy infrastructure and application
+bash infra/scripts/bootstrap.sh dev <your-prefix> --yes
+bash infra/scripts/deploy.sh dev <your-prefix> --yes
+
+# Example:
+bash infra/scripts/bootstrap.sh dev myapp --yes
+bash infra/scripts/deploy.sh dev myapp --yes
 ```
 
-### Step 3: Deploy Infrastructure (10-15 min)
-
-```bash
-cd infra/scripts
-
-# Bootstrap Azure resources
-# Usage: bash bootstrap.sh <env> <region>
-bash bootstrap.sh dev uksouth
-
-# Enter a unique resource prefix when prompted (3-10 characters, lowercase)
-# Example: myprefix, acme123, etc.
-```
-
-**What gets created:**
-- Azure Translator Service (S1 tier)
-- AI Foundry Hub with GPT-4o-mini
-- Storage Account with containers
-- Key Vault for secrets
-- App Service Plan with Backend + Frontend apps
-- Application Insights for monitoring
-
-**💡 Note**: The script will prompt for a unique resource prefix. This ensures your resources don't conflict with existing ones.
-
-### Step 4: Deploy Application Code (5-10 min)
-
-```bash
-# Still in infra/scripts directory
-# Usage: bash deploy.sh <env> <prefix> --yes
-bash deploy.sh dev myprefix --yes
-```
-
-Replace `myprefix` with the same prefix you used in Step 3.
-
-**What this does:**
-1. ✅ Retrieves all resource configurations
-2. ✅ Stores secrets in Key Vault
-3. ✅ Configures managed identities and RBAC
-4. ✅ Deploys Python FastAPI backend
-5. ✅ Deploys React Vite frontend
-6. ✅ Configures CORS and startup commands
-7. ✅ Tests endpoints
-8. ✅ Creates local `.env` file for development
-
-**Expected Output:**
-```bash
-✨ Deployment Complete! ✨
-
-🌐 Application URLs:
-   Frontend:     https://myprefix-dev-web-xxx.azurewebsites.net
-   Backend API:  https://myprefix-dev-api-xxx.azurewebsites.net
-   API Docs:     https://myprefix-dev-api-xxx.azurewebsites.net/docs
-
-🔑 Secrets:
-   Key Vault:    myprefix-dev-kv-xxx
-   All secrets stored and configured via managed identities
-
-📊 Monitoring:
-   App Insights: myprefix-dev-ai
-```
-
-### Step 5: Test Your Deployment
-
-Wait ~30 seconds for apps to fully start, then:
-
-**Test Backend:**
-```bash
-curl https://myprefix-dev-api-xxx.azurewebsites.net/health
-# Expected: {"status":"healthy","version":"1.0.0",...}
-```
-
-**Test Frontend:**
-
-Open your frontend URL in a browser: `https://myprefix-dev-web-xxx.azurewebsites.net`
-
-Try these features:
-1. ✅ **Translate Tab** - Translate text between languages
-2. ✅ **Compare Tab** - Compare NMT vs LLM translations
-3. ✅ **Dictionary Tab** - Look up word definitions
-4. ✅ **Batch Tab** - Translate files from storage (after uploading some .txt files)
-5. ✅ **Review Tab** - Compare and rate translations
-
-**🎉 Your deployment is complete!**
+**That's it!** Your application will be available at:
+- Frontend: `https://<prefix>-dev-web-*.azurewebsites.net`
+- Backend: `https://<prefix>-dev-api-*.azurewebsites.net`
+- API Docs: `https://<prefix>-dev-api-*.azurewebsites.net/docs`
 
 ---
 
-## 🔄 Redeployment
+## 🏠 Local Development
 
-**Redeploy application code only** (infrastructure already exists):
-```bash
-cd infra/scripts
-bash deploy.sh dev myprefix --yes
-```
-
-**Redeploy frontend only** (faster, ~2-3 minutes):
-```bash
-cd infra/scripts
-bash deploy-frontend.sh myprefix dev
-```
-
-**Update infrastructure** (if you modified Bicep templates):
-```bash
-cd infra/scripts
-bash bootstrap.sh dev uksouth --yes
-```
-
----
-
-## 💻 Local Development (Optional)
-
-To run the app locally while using Azure resources:
-
-### 1. Backend Setup
+### Option 1: Quick Start (Recommended)
 
 ```bash
+# 1. Setup environment
+cp .env.example .env
+# Edit .env with your Azure credentials
+
+# 2. Start frontend (Docker)
+docker-compose up -d frontend
+
+# 3. Start backend (local - avoids Conditional Access issues)
 cd src/backend
-
-# Install dependencies
-pip3 install -r requirements.txt
-
-# Copy .env file generated by deploy.sh from project root
-cp ../../.env .env
-
-# Run backend
-python3 -m uvicorn app.main:app --reload --port 8000
+source ../../venv/bin/activate
+export $(grep -v '^#' ../../.env | xargs)
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Visit: http://localhost:8000/docs
+Access:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- API Docs: http://localhost:8000/docs
 
-### 2. Frontend Setup
+### Option 2: Full Docker
 
 ```bash
-cd src/frontend
+# Start all services
+docker-compose up -d
 
-# Install dependencies
-npm install
-
-# Create .env.local
-echo "VITE_API_BASE_URL=http://localhost:8000" > .env.local
-
-# Run frontend
-npm run dev
+# View logs
+docker-compose logs -f
 ```
 
-Visit: http://localhost:5173
+**Note**: If your organization has Conditional Access policies, use Option 1 (local backend) as it uses your Azure CLI credentials which satisfy CA policies.
 
 ---
 
-## 📁 Project Structure
+## 📋 Environment Configuration
 
-```
-├── infra/
-│   ├── bicep/                  # Infrastructure as Code
-│   │   ├── main.bicep          # Main template
-│   │   ├── modules/            # Resource modules
-│   │   └── parameters/         # Environment configs
-│   └── scripts/
-│       ├── bootstrap.sh        # Deploy infrastructure
-│       ├── deploy.sh           # Deploy application code
-│       └── cleanup.sh          # Delete everything
-│
-├── src/
-│   ├── backend/                # Python FastAPI
-│   │   ├── app/
-│   │   │   ├── api/            # API routes & models
-│   │   │   ├── services/       # Business logic
-│   │   │   └── main.py         # Entry point
-│   │   └── requirements.txt
-│   │
-│   └── frontend/               # React + TypeScript
-│       ├── src/
-│       │   ├── components/     # UI components
-│       │   └── services/       # API client
-│       └── package.json
-│
-└── docs/                       # Additional documentation
-```
+### Required Variables (.env file)
 
----
-
-## 🔧 Configuration
-
-### Key Environment Variables
-
-Backend uses these (auto-configured by deploy.sh):
 ```bash
-AZURE_TRANSLATOR_KEY=<from-keyvault>
-AZURE_TRANSLATOR_REGION=<deployment-region>
+# Azure Translator
+AZURE_TRANSLATOR_KEY=<your-key>
+AZURE_TRANSLATOR_REGION=<region>
 AZURE_TRANSLATOR_ENDPOINT=https://api.cognitive.microsofttranslator.com
+
+# Storage (for local development)
 AZURE_STORAGE_ACCOUNT_NAME=<storage-account-name>
-AZURE_AI_FOUNDRY_ENDPOINT=<foundry-endpoint>
-AZURE_AI_FOUNDRY_KEY=<from-keyvault>
-AZURE_KEY_VAULT_URL=<keyvault-url>
+
+# Optional: AI Foundry (for LLM translation)
+AZURE_AI_FOUNDRY_ENDPOINT=<endpoint>
+AZURE_AI_FOUNDRY_KEY=<key>
 ```
 
-Frontend uses:
-```bash
-VITE_API_BASE_URL=<backend-api-url>
-```
-
-**💡 All secrets are stored in Key Vault and accessed via managed identities - no secrets in code!**
+Get these values after running `deploy.sh` - they're automatically saved to `.env`.
 
 ---
 
-## 💰 Cost Estimation
+## 🧪 Testing
 
-### Development Environment
-- Azure Translator (S1): **~$10/month** (2M chars included)
-- App Service (B1): **~$13/month**
-- Storage: **~$0.50/month**
-- Application Insights: **~$2/month** (5GB free)
-- AI Foundry (GPT-4o-mini): **Pay per use** (~$0.15/1M tokens)
+### Upload Sample Files
 
-**Total: ~$25-30/month**
+```bash
+# Load sample translation files to Azure Storage
+cd src/backend
+source ../../venv/bin/activate
+cd ../../
 
-### Production Environment
-- Translator (S1+): **$10+ per month**
-- App Service (P1v3): **~$80/month**
-- Storage (GRS): **~$5/month**
-- App Insights: **~$10/month**
-- AI Foundry: **Pay per use**
+python3 << 'EOF'
+import json
+from pathlib import Path
+from azure.storage.blob import BlobServiceClient
+from azure.identity import DefaultAzureCredential
 
-**Total: ~$105/month + usage**
+# Use your storage account name
+account_name = "<your-storage-account-name>"
+credential = DefaultAzureCredential()
+blob_service_client = BlobServiceClient(
+    account_url=f"https://{account_name}.blob.core.windows.net",
+    credential=credential
+)
+
+# Upload samples
+samples_file = Path("data/samples/sample_texts.json")
+with open(samples_file, 'r') as f:
+    samples = json.load(f)
+
+container_client = blob_service_client.get_container_client("translations")
+
+for sample in samples:
+    blob_name = f"sample_{sample['id']:03d}_{sample['language']}.txt"
+    blob_client = container_client.get_blob_client(blob_name)
+    blob_client.upload_blob(sample['text'], overwrite=True)
+    print(f"✓ Uploaded: {blob_name}")
+
+print(f"✓ Uploaded {len(samples)} sample files")
+EOF
+```
+
+### Test Batch Translation
+
+1. Open the frontend (local or Azure)
+2. Go to **Batch** tab
+3. Configure:
+   - Source Container: `translations`
+   - Target Container: `exports`
+   - Target Language: Any (e.g., French, Spanish)
+   - Source Language: Auto-detect
+4. (Optional) Add dictionary terms to preserve technical words
+5. Click **Start Batch Translation**
 
 ---
 
-## 🚨 Troubleshooting
+## 🔧 Troubleshooting
 
-### Batch Tab Shows No Containers
+### Local Development
 
-**Cause**: Storage RBAC permissions not configured.
-
-**Solution**: Already handled by `deploy.sh`! If deployed before the fix, run:
+**Port 8000 already in use:**
 ```bash
-# Get resource names
-BACKEND_APP=$(az webapp list --resource-group <rg-name> --query "[?contains(name, 'api')].name | [0]" -o tsv)
-STORAGE_NAME=$(az storage account list --resource-group <rg-name> --query "[0].name" -o tsv)
+# Stop any Docker containers
+docker-compose stop backend
+docker-compose rm -f backend
 
-# Remove connection string setting (if exists)
-az webapp config appsettings delete --name $BACKEND_APP --resource-group <rg-name> --setting-names "AZURE_STORAGE_CONNECTION_STRING"
-
-# Restart backend
-az webapp restart --name $BACKEND_APP --resource-group <rg-name>
+# Kill process on port 8000
+lsof -ti:8000 | xargs kill -9
 ```
 
-### Backend Returns 500 Errors
-
-**Check logs:**
+**Storage authentication fails:**
 ```bash
-az webapp log tail --name <backend-app-name> --resource-group <resource-group>
+# Ensure you're logged in
+az login
+
+# Verify your account has Storage Blob Data Contributor role
+az role assignment list --assignee $(az account show --query user.name -o tsv) --all
 ```
 
-Common issues:
-- Missing environment variables
-- Key Vault access not granted
-- Translator API key invalid
-
-### Frontend Not Loading
-
-**Check:**
-1. Frontend built with correct `VITE_API_BASE_URL`
-2. Backend is running and healthy
-3. CORS configured correctly (auto-handled by deploy.sh)
-
-**View logs:**
+**Missing Python packages:**
 ```bash
-az webapp log tail --name <frontend-app-name> --resource-group <resource-group>
+pip install -r src/backend/requirements.txt
 ```
 
-### AI Foundry Deployment Stuck
+### Azure Deployment
 
-This happens occasionally. Delete and redeploy:
+**502 Bad Gateway after deployment:**
+- Wait 2-3 minutes for the app to fully start
+- Check logs: `az webapp log tail --name <app-name> --resource-group <resource-group>`
+
+**Key Vault access errors:**
 ```bash
-# Delete the stuck resource
-az cognitiveservices account delete --name <foundry-name> --resource-group <rg-name>
+# Temporarily enable public access for deployment
+az keyvault update --name <keyvault-name> --resource-group <resource-group> --public-network-access Enabled
 
-# If soft-deleted, purge it
-az cognitiveservices account purge --name <foundry-name> --resource-group <rg-name> --location <region>
+# Run deployment
+bash infra/scripts/deploy.sh dev <prefix> --yes
 
-# Redeploy infrastructure
-cd infra/scripts
-bash bootstrap.sh dev uksouth
+# Disable public access again
+az keyvault update --name <keyvault-name> --resource-group <resource-group> --public-network-access Disabled
+```
+
+**Deployment times out:**
+- The backend deployment can take 3-4 minutes due to Oryx build
+- This is normal - wait for it to complete
+
+---
+
+## 📚 Architecture
+
+### Components
+
+```
+┌─────────────────┐     ┌─────────────────┐
+│   React         │────▶│   FastAPI       │
+│   Frontend      │     │   Backend       │
+│   (Port 3000)   │     │   (Port 8000)   │
+└─────────────────┘     └─────────────────┘
+                               │
+                ┌──────────────┼──────────────┐
+                │              │              │
+         ┌──────▼─────┐ ┌─────▼──────┐ ┌────▼────┐
+         │  Azure     │ │   Azure    │ │  Azure  │
+         │ Translator │ │   Blob     │ │   AI    │
+         │  Service   │ │  Storage   │ │ Foundry │
+         └────────────┘ └────────────┘ └─────────┘
+```
+
+### Authentication
+
+| Environment | Method | Notes |
+|-------------|--------|-------|
+| **Local** | Azure CLI (`az login`) | Uses your personal credentials |
+| **Azure** | Managed Identity | No secrets in code |
+| **Docker (local)** | Service Principal | If CA policies allow |
+
+---
+
+## 🎯 Key Features Guide
+
+### Dynamic Dictionary
+
+Preserve technical terms or provide custom translations:
+
+```json
+{
+  "Azure": "Azure",           // Preserve as-is
+  "API": "API",               // Preserve as-is
+  "service": "servicio"       // Custom translation
+}
+```
+
+The solution automatically wraps terms with `<mstrans:dictionary>` tags for Azure Translator.
+
+### Batch Translation
+
+1. Upload text files to a source container
+2. Configure source/target containers and language
+3. Run batch job
+4. Results saved to target container with both NMT and LLM translations
+
+### Translation Comparison
+
+Compare two translation methods:
+- **NMT**: Azure Translator Neural Machine Translation
+- **LLM**: GPT-4o-mini based translation (requires AI Foundry)
+
+---
+
+## 🔐 Security
+
+- **Key Vault**: All secrets stored in Azure Key Vault
+- **Managed Identity**: No credentials in code or config
+- **Private Endpoints**: Recommended for production (configure via Bicep)
+- **RBAC**: Least privilege access with Azure AD roles
+
+---
+
+## 📦 Project Structure
+
+```
+azure-translator-accelerator/
+├── src/
+│   ├── backend/           # FastAPI backend
+│   │   ├── app/
+│   │   │   ├── api/       # API routes and models
+│   │   │   ├── services/  # Business logic
+│   │   │   └── main.py    # Application entry
+│   │   └── requirements.txt
+│   └── frontend/          # React frontend
+│       ├── src/
+│       │   ├── components/
+│       │   └── services/
+│       └── package.json
+├── infra/
+│   ├── bicep/             # Infrastructure as Code
+│   │   ├── main.bicep
+│   │   └── modules/
+│   └── scripts/
+│       ├── bootstrap.sh   # Deploy infrastructure
+│       └── deploy.sh      # Deploy application
+├── data/
+│   └── samples/           # Sample translation files
+├── docker-compose.yml
+└── README.md
 ```
 
 ---
 
-## 🧹 Cleanup
+## 🔄 Development Workflow
 
-To delete all Azure resources:
+### Make Changes Locally
+
+1. Edit code in `src/backend/` or `src/frontend/`
+2. Backend auto-reloads with `uvicorn --reload`
+3. Frontend auto-reloads with Vite dev server
+4. Test at http://localhost:3000
+
+### Deploy Changes to Azure
 
 ```bash
-cd infra/scripts
-bash cleanup.sh dev
+# Deploy updated code (infrastructure unchanged)
+bash infra/scripts/deploy.sh dev <prefix> --yes
+
+# View deployment logs
+az webapp log tail --name <prefix>-dev-api-* --resource-group <prefix>-dev-rg
 ```
 
-**⚠️ Warning**: This deletes everything permanently. All data will be lost.
+### Update Infrastructure
+
+```bash
+# Modify files in infra/bicep/
+# Then redeploy
+bash infra/scripts/bootstrap.sh dev <prefix> --yes
+```
 
 ---
 
-## 📚 Additional Resources
+## 📊 Monitoring
 
-- **[Architecture Guide](docs/architecture.md)** - Detailed system design
-- **[LLM Translation Guide](docs/llm-translation.md)** - GPT-4o features
-- **[Troubleshooting Guide](docs/troubleshooting.md)** - Comprehensive solutions
-- **[Azure Translator Docs](https://learn.microsoft.com/azure/ai-services/translator/)** - Official documentation
+View logs in Azure:
+```bash
+# Backend logs
+az webapp log tail --name <prefix>-dev-api-* --resource-group <prefix>-dev-rg
+
+# Frontend logs
+az webapp log tail --name <prefix>-dev-web-* --resource-group <prefix>-dev-rg
+```
+
+Application Insights is automatically configured for monitoring and diagnostics.
 
 ---
 
 ## 🤝 Contributing
 
-Contributions welcome! Please:
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ---
 
-## 📄 License
+## 📝 License
 
-This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-## ❓ Support
-
-- **Issues**: [GitHub Issues](../../issues)
-- **Azure Translator**: [Microsoft Q&A](https://learn.microsoft.com/answers/tags/133/azure-translator)
-- **Azure Support**: [Azure Support Portal](https://azure.microsoft.com/support/)
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-**Made with ❤️ for the Azure community**
+## 🆘 Support
+
+- **Issues**: Open an issue on GitHub
+- **Documentation**: Check inline code comments and API docs at `/docs` endpoint
+- **Azure Docs**: https://learn.microsoft.com/azure/ai-services/translator/
+
+---
+
+## ⚡ Quick Command Reference
+
+```bash
+# Deploy everything to Azure
+bash infra/scripts/bootstrap.sh dev myapp --yes
+bash infra/scripts/deploy.sh dev myapp --yes
+
+# Run locally
+docker-compose up -d frontend
+cd src/backend && uvicorn app.main:app --reload
+
+# View logs
+docker-compose logs -f
+az webapp log tail --name <app-name> --resource-group <rg>
+
+# Cleanup
+az group delete --name <prefix>-dev-rg --yes
+```
+
+---
+
+**Built with ❤️ using Azure AI Services**

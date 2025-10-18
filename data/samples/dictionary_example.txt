@@ -1,0 +1,17 @@
+Welcome to the Azure Translator demonstration!
+
+This text contains several technical terms that we want to handle specially:
+- The API provides access to translation services
+- We use gpt-4o-mini model for LLM translations
+- Azure Translator supports over 100 languages
+- The wordomatic feature is a dictionary entry
+
+Technical specifications:
+- REST API endpoints
+- JSON response format
+- OAuth 2.0 authentication
+- SDK support for Python, JavaScript, and .NET
+
+Contact: support@contoso.com
+Website: https://www.contoso.com
+

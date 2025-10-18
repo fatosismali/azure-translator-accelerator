@@ -21,33 +21,41 @@ class StorageService:
         
         # Check if Azure Storage is configured
         if not self.settings.azure_storage_connection_string and not self.settings.azure_storage_account_name:
-            logger.warning("Azure Storage not configured - running in mock mode for local testing")
+            logger.warning(
+                "⚠️  Azure Storage not configured - running in MOCK MODE for testing.\n"
+                "   To use real storage, set one of:\n"
+                "   - AZURE_STORAGE_CONNECTION_STRING (recommended for local/Docker)\n"
+                "   - AZURE_STORAGE_ACCOUNT_NAME (for Azure with managed identity)\n"
+                "   Mock mode provides sample data but won't save translations."
+            )
             self.mock_mode = True
             self.blob_service_client = None
             return
         
-        # Initialize blob service client
+        # PRIORITIZE connection string for local development (Docker, local testing)
+        # This avoids managed identity issues when running outside Azure
         if self.settings.azure_storage_connection_string:
+            logger.info("✓ Storage service initialized with CONNECTION STRING (local/Docker mode)")
             self.blob_service_client = BlobServiceClient.from_connection_string(
                 self.settings.azure_storage_connection_string
             )
-            logger.info("Storage service initialized with connection string")
         else:
-            # For Azure AD authentication (managed identity or Azure CLI)
+            # For Azure deployment with managed identity OR local Docker with Azure CLI
+            logger.info(f"✓ Storage service initialized with AZURE AD AUTHENTICATION for account: {self.settings.azure_storage_account_name}")
+            logger.info("   Using: Azure CLI credentials (local) or Managed Identity (Azure)")
             storage_url = f"https://{self.settings.azure_storage_account_name}.blob.core.windows.net"
             from azure.identity import DefaultAzureCredential
             credential = DefaultAzureCredential(
                 exclude_shared_token_cache_credential=True,
                 exclude_visual_studio_code_credential=True,
-                exclude_environment_credential=False,
-                exclude_managed_identity_credential=False,
-                exclude_azure_cli_credential=False
+                exclude_environment_credential=False,  # Enable for Service Principal (AZURE_CLIENT_ID/SECRET/TENANT_ID)
+                exclude_managed_identity_credential=False,  # Enable for Azure deployment
+                exclude_azure_cli_credential=True  # Disable Azure CLI as it doesn't work in Docker
             )
             self.blob_service_client = BlobServiceClient(
                 account_url=storage_url,
                 credential=credential
             )
-            logger.info(f"Storage service initialized with Azure AD for account: {self.settings.azure_storage_account_name}")
 
     def list_containers(self) -> List[str]:
         """
