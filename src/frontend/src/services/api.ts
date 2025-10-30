@@ -223,6 +223,16 @@ class TranslatorAPI {
   }
 
   /**
+   * Get all batch jobs
+   */
+  async getAllBatchJobs(limit: number = 100): Promise<any> {
+    const response = await this.client.get('/batch/jobs', {
+      params: { limit },
+    })
+    return response.data
+  }
+
+  /**
    * List translated files in a container
    */
   async listTranslatedFiles(containerName: string): Promise<any> {

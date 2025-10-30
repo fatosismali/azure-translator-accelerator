@@ -1,102 +1,145 @@
+#!/usr/bin/env python3
 """
-Background worker for processing translation queue messages.
+Background worker for processing batch translation queue messages.
+
+This worker continuously polls Azure Queue Storage for batch translation jobs
+and processes them asynchronously.
+
+Usage:
+    python -m app.worker
+    
+Or in production:
+    uvicorn app.worker:app --workers 2
 """
 
 import asyncio
-import json
 import logging
 import signal
 import sys
-from datetime import datetime
+from typing import Optional
+
+from app.config import get_settings
 from app.services.storage_service import StorageService
 from app.services.queue_service import QueueService
 from app.services.translator_service import TranslatorService
 from app.services.batch_service import BatchTranslationService
-from app.config import get_settings
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Global flag for graceful shutdown
-running = True
 
-
-def signal_handler(sig, frame):
-    """Handle shutdown signals."""
-    global running
-    logger.info("Received shutdown signal, finishing current message...")
-    running = False
-
-
-async def process_messages():
-    """Main worker loop to process queue messages."""
-    settings = get_settings()
+class BatchWorker:
+    """Background worker for processing batch translation jobs."""
     
-    # Initialize services
-    storage = StorageService()
-    queue = QueueService(queue_name="translation-jobs")
-    translator = TranslatorService(settings)
-    batch_service = BatchTranslationService(storage, queue, translator)
+    def __init__(self):
+        """Initialize worker with required services."""
+        self.settings = get_settings()
+        self.running = False
+        self.storage_service = StorageService()
+        self.queue_service = QueueService(queue_name="translation-jobs")
+        self.translator_service = TranslatorService(self.settings)
+        self.batch_service = BatchTranslationService(
+            self.storage_service,
+            self.queue_service,
+            self.translator_service
+        )
+        logger.info("Batch worker initialized")
     
-    logger.info("Worker started, polling for messages...")
-    
-    while running:
-        try:
-            # Receive messages from queue
-            messages = queue.receive_messages(max_messages=1, visibility_timeout=600)  # 10 min timeout
-            
-            for message in messages:
-                try:
-                    # Parse message content
-                    content = json.loads(message.content)
-                    logger.info(f"Processing message {message.id}: {content.get('source_blob')}")
-                    
-                    # Process the translation job
-                    await batch_service.process_queue_message(content)
-                    
-                    # Delete message after successful processing
-                    queue.delete_message(message.id, message.pop_receipt)
-                    logger.info(f"Successfully processed and deleted message {message.id}")
-                
-                except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse message {message.id}: {str(e)}")
-                    queue.delete_message(message.id, message.pop_receipt)
-                
-                except Exception as e:
-                    logger.error(f"Failed to process message {message.id}: {str(e)}", exc_info=True)
-                    # Don't delete message - it will become visible again for retry
-            
-            # Sleep briefly before next poll (only if no messages were processed)
-            if not any(messages):
-                await asyncio.sleep(5)  # Poll every 5 seconds
+    async def process_messages(self):
+        """Continuously poll queue and process messages."""
+        logger.info("Worker started - polling for messages...")
         
-        except KeyboardInterrupt:
-            logger.info("Received keyboard interrupt")
-            break
-        
-        except Exception as e:
-            logger.error(f"Worker error: {str(e)}", exc_info=True)
-            await asyncio.sleep(10)  # Wait before retrying after error
+        while self.running:
+            try:
+                # Receive up to 10 messages at once
+                messages = self.queue_service.receive_messages(
+                    max_messages=10,
+                    visibility_timeout=300  # 5 minutes to process each message
+                )
+                
+                processed_count = 0
+                for message in messages:
+                    try:
+                        logger.info(f"Processing message: {message.id}")
+                        
+                        # Parse message content
+                        import json
+                        message_content = json.loads(message.content)
+                        
+                        # Process the translation job
+                        await self.batch_service.process_queue_message(message_content)
+                        
+                        # Delete message from queue after successful processing
+                        self.queue_service.delete_message(message.id, message.pop_receipt)
+                        processed_count += 1
+                        
+                        logger.info(f"Message {message.id} processed successfully")
+                        
+                    except Exception as e:
+                        logger.error(f"Error processing message {message.id}: {str(e)}")
+                        # Message will become visible again after visibility_timeout
+                        # Azure Queue will retry up to dequeue_count times
+                
+                if processed_count > 0:
+                    logger.info(f"Processed {processed_count} messages in this batch")
+                
+                # Wait a bit before checking queue again (avoid tight loop)
+                await asyncio.sleep(2)
+                
+            except Exception as e:
+                logger.error(f"Error in worker loop: {str(e)}")
+                await asyncio.sleep(5)  # Wait longer on error
     
-    logger.info("Worker stopped")
+    async def start(self):
+        """Start the worker."""
+        self.running = True
+        logger.info("=" * 60)
+        logger.info("Batch Translation Worker Starting")
+        logger.info("=" * 60)
+        logger.info(f"Queue: translation-jobs")
+        logger.info(f"Environment: {self.settings.environment}")
+        logger.info(f"Region: {self.settings.azure_translator_region}")
+        logger.info("=" * 60)
+        
+        await self.process_messages()
+    
+    def stop(self):
+        """Stop the worker gracefully."""
+        logger.info("Stopping worker...")
+        self.running = False
 
 
-def main():
-    """Main entry point."""
-    # Register signal handlers for graceful shutdown
+# Global worker instance
+worker: Optional[BatchWorker] = None
+
+
+async def main():
+    """Main entry point for the worker."""
+    global worker
+    worker = BatchWorker()
+    
+    # Setup signal handlers for graceful shutdown
+    def signal_handler(signum, frame):
+        logger.info(f"Received signal {signum}")
+        if worker:
+            worker.stop()
+        sys.exit(0)
+    
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
-    logger.info("Starting translation worker...")
-    
-    # Run the async worker
-    asyncio.run(process_messages())
+    try:
+        await worker.start()
+    except KeyboardInterrupt:
+        logger.info("Worker interrupted by user")
+        worker.stop()
+    except Exception as e:
+        logger.error(f"Worker failed: {str(e)}")
+        raise
 
 
 if __name__ == "__main__":
-    main()
-
+    asyncio.run(main())

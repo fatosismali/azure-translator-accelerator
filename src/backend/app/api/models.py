@@ -280,7 +280,18 @@ class BatchJobStatusResponse(BaseModel):
     """Response model for batch job status."""
     job_id: str
     status: str
-    queue_length: int
+    total_files: int
+    processed_files: Optional[int] = 0
+    failed_files: Optional[int] = 0
+    source_container: Optional[str] = None
+    target_container: Optional[str] = None
+    target_language: Optional[str] = None
+    source_language: Optional[str] = None
+    created_at: str
+    updated_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    error: Optional[str] = None
+    message: Optional[str] = None
 
 
 class TranslatedFileInfo(BaseModel):

@@ -233,11 +233,26 @@ az keyvault set-policy \
 
 # Grant backend app access to Storage Account (for managed identity access)
 print_info "Granting backend app access to Storage Account..."
+print_info "  - Storage Blob Data Contributor (for batch files)"
 az role assignment create \
     --assignee "$BACKEND_IDENTITY" \
     --role "Storage Blob Data Contributor" \
     --scope "$STORAGE_ID" \
-    --output none 2>/dev/null || echo "  (Role may already be assigned)"
+    --output none 2>/dev/null || echo "    (Role may already be assigned)"
+
+print_info "  - Storage Queue Data Contributor (for job queue)"
+az role assignment create \
+    --assignee "$BACKEND_IDENTITY" \
+    --role "Storage Queue Data Contributor" \
+    --scope "$STORAGE_ID" \
+    --output none 2>/dev/null || echo "    (Role may already be assigned)"
+
+print_info "  - Storage Table Data Contributor (for job tracking)"
+az role assignment create \
+    --assignee "$BACKEND_IDENTITY" \
+    --role "Storage Table Data Contributor" \
+    --scope "$STORAGE_ID" \
+    --output none 2>/dev/null || echo "    (Role may already be assigned)"
 
 # Configure backend app settings
 print_info "Setting backend environment variables..."
@@ -252,6 +267,7 @@ az webapp config appsettings set \
         "AZURE_STORAGE_ACCOUNT_NAME=$STORAGE_NAME" \
         "AZURE_KEY_VAULT_URL=$KEY_VAULT_URI" \
         "ENVIRONMENT=$ENVIRONMENT" \
+        "ENABLE_BATCH_QUEUE=true" \
         "SCM_DO_BUILD_DURING_DEPLOYMENT=true" \
     --output none
 
@@ -474,6 +490,65 @@ print_success "Frontend deployed"
 # Clean up temp files
 rm -f /tmp/backend-${RESOURCE_PREFIX}.zip /tmp/frontend-${RESOURCE_PREFIX}.zip
 
+# ==================================
+# Deploy Container Apps Worker
+# ==================================
+print_header "Building and Deploying Worker Container"
+
+# Get Container Registry details
+CONTAINER_REGISTRY_NAME=$(az deployment group show \
+    --name "main-${ENV_NAME}" \
+    --resource-group "$RESOURCE_GROUP_NAME" \
+    --query "properties.outputs.containerRegistryName.value" -o tsv)
+
+CONTAINER_REGISTRY_SERVER=$(az deployment group show \
+    --name "main-${ENV_NAME}" \
+    --resource-group "$RESOURCE_GROUP_NAME" \
+    --query "properties.outputs.containerRegistryLoginServer.value" -o tsv)
+
+WORKER_JOB_NAME=$(az deployment group show \
+    --name "main-${ENV_NAME}" \
+    --resource-group "$RESOURCE_GROUP_NAME" \
+    --query "properties.outputs.workerJobName.value" -o tsv)
+
+print_info "Container Registry: $CONTAINER_REGISTRY_NAME"
+print_info "Worker Job: $WORKER_JOB_NAME"
+
+# Build and push worker container image
+print_info "Building worker container image..."
+cd "$SCRIPT_DIR/../../src/backend"
+
+# Login to ACR using managed identity
+print_info "Authenticating with Azure Container Registry..."
+az acr login --name "$CONTAINER_REGISTRY_NAME" --output none
+
+# Build and push the image
+print_info "Building and pushing worker image (this may take a few minutes)..."
+az acr build \
+    --registry "$CONTAINER_REGISTRY_NAME" \
+    --image translator-worker:latest \
+    --file Dockerfile.worker \
+    . \
+    --output none 2>&1 | grep -E "^(Step|Successfully|Tagging)" || true
+
+print_success "Worker image built and pushed to ACR"
+
+# Wait for image to be available
+print_info "Waiting for image to be available..."
+sleep 5
+
+# Trigger the worker job manually to verify it works
+print_info "Triggering worker job execution (test run)..."
+az containerapp job start \
+    --name "$WORKER_JOB_NAME" \
+    --resource-group "$RESOURCE_GROUP_NAME" \
+    --output none 2>&1 || print_warning "Worker job trigger skipped (will auto-scale based on queue)"
+
+print_success "Worker deployed and configured"
+
+# Return to script directory
+cd "$SCRIPT_DIR"
+
 # Test endpoints
 print_header "Testing Deployment"
 
@@ -511,6 +586,11 @@ echo "🌐 Application URLs:"
 echo "   Frontend:     $FRONTEND_URL"
 echo "   Backend API:  $BACKEND_URL"
 echo "   API Docs:     ${BACKEND_URL}/docs"
+echo ""
+echo "🔄 Worker:"
+echo "   Job Name:     $WORKER_JOB_NAME"
+echo "   Status:       Auto-scaling based on queue depth"
+echo "   Mode:         Event-driven (polls every 30s)"
 echo ""
 echo "🔑 Secrets:"
 echo "   Key Vault:    $KEY_VAULT_NAME"

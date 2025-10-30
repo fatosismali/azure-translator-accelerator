@@ -56,6 +56,9 @@ var frontendAppName = '${resourceNamePrefix}-web-${uniqueSuffix}'
 var storageName = take(replace('${resourcePrefix}${environment}st${uniqueSuffix}', '-', ''), 24)
 var appInsightsName = '${resourceNamePrefix}-ai'
 var logAnalyticsName = '${resourceNamePrefix}-logs'
+var containerRegistryName = take(replace('${resourcePrefix}${environment}acr${uniqueSuffix}', '-', ''), 50)
+var containerEnvironmentName = '${resourceNamePrefix}-cae'
+var workerJobName = '${resourceNamePrefix}-worker-job'
 
 // Module: Azure Translator
 module translator 'modules/translator.bicep' = {
@@ -124,6 +127,93 @@ module monitoring 'modules/monitoring.bicep' = {
     tags: tags
     retentionInDays: environment == 'dev' ? 30 : 90
   }
+}
+
+// Module: Container Registry
+module containerRegistry 'modules/container-registry.bicep' = {
+  name: 'container-registry-deployment'
+  params: {
+    name: containerRegistryName
+    location: location
+    tags: tags
+    sku: environment == 'dev' ? 'Basic' : 'Standard'
+    adminUserEnabled: false
+  }
+}
+
+// Module: Container Apps Environment
+module containerEnvironment 'modules/container-environment.bicep' = {
+  name: 'container-environment-deployment'
+  params: {
+    name: containerEnvironmentName
+    location: location
+    tags: tags
+    logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
+  }
+  dependsOn: [
+    monitoring
+  ]
+}
+
+// Module: Container Apps Job (Worker)
+module workerJob 'modules/container-job.bicep' = {
+  name: 'worker-job-deployment'
+  params: {
+    name: workerJobName
+    location: location
+    tags: tags
+    environmentId: containerEnvironment.outputs.id
+    containerImage: '${containerRegistry.outputs.loginServer}/translator-worker:latest'
+    containerRegistryServer: containerRegistry.outputs.loginServer
+    enableManagedIdentity: true
+    triggerType: 'Event'
+    queueName: 'translation-jobs'
+    queueLength: 5
+    minExecutions: 0
+    maxExecutions: 10
+    pollingInterval: 30
+    environmentVariables: [
+      {
+        name: 'AZURE_TRANSLATOR_KEY'
+        value: translator.outputs.primaryKey
+      }
+      {
+        name: 'AZURE_TRANSLATOR_ENDPOINT'
+        value: translator.outputs.endpoint
+      }
+      {
+        name: 'AZURE_TRANSLATOR_REGION'
+        value: location
+      }
+      {
+        name: 'AZURE_STORAGE_ACCOUNT_NAME'
+        value: storage.outputs.name
+      }
+      {
+        name: 'AZURE_KEY_VAULT_URL'
+        value: keyVault.outputs.uri
+      }
+      {
+        name: 'ENVIRONMENT'
+        value: environment
+      }
+      {
+        name: 'ENABLE_BATCH_QUEUE'
+        value: 'true'
+      }
+      {
+        name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+        value: monitoring.outputs.appInsightsConnectionString
+      }
+    ]
+  }
+  dependsOn: [
+    containerRegistry
+    containerEnvironment
+    storage
+    keyVault
+    translator
+  ]
 }
 
 // Module: App Service (Backend API)
@@ -287,6 +377,81 @@ resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-
   ]
 }
 
+// Grant Worker Job Managed Identity Storage Blob Data Contributor role
+resource workerStorageBlobRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, workerJobName, 'StorageBlobDataContributor')
+  scope: resourceGroup()
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe') // Storage Blob Data Contributor
+    principalId: workerJob.outputs.principalId
+    principalType: 'ServicePrincipal'
+  }
+  dependsOn: [
+    storage
+    workerJob
+  ]
+}
+
+// Grant Worker Job Managed Identity Storage Queue Data Contributor role
+resource workerStorageQueueRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, workerJobName, 'StorageQueueDataContributor')
+  scope: resourceGroup()
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '974c5e8b-45b9-4653-ba55-5f855dd0fb88') // Storage Queue Data Contributor
+    principalId: workerJob.outputs.principalId
+    principalType: 'ServicePrincipal'
+  }
+  dependsOn: [
+    storage
+    workerJob
+  ]
+}
+
+// Grant Worker Job Managed Identity Storage Table Data Contributor role
+resource workerStorageTableRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, workerJobName, 'StorageTableDataContributor')
+  scope: resourceGroup()
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3') // Storage Table Data Contributor
+    principalId: workerJob.outputs.principalId
+    principalType: 'ServicePrincipal'
+  }
+  dependsOn: [
+    storage
+    workerJob
+  ]
+}
+
+// Grant Worker Job ACR Pull role for Container Registry
+resource workerAcrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, workerJobName, 'AcrPull')
+  scope: resourceGroup()
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull
+    principalId: workerJob.outputs.principalId
+    principalType: 'ServicePrincipal'
+  }
+  dependsOn: [
+    containerRegistry
+    workerJob
+  ]
+}
+
+// Grant Worker Job Key Vault Secrets User role
+resource workerKeyVaultRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, workerJobName, 'KeyVaultSecretsUser')
+  scope: resourceGroup()
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6') // Key Vault Secrets User
+    principalId: workerJob.outputs.principalId
+    principalType: 'ServicePrincipal'
+  }
+  dependsOn: [
+    keyVault
+    workerJob
+  ]
+}
+
 // Grant App Service Managed Identity Cognitive Services User role for AI Foundry
 resource aiFoundryRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(resourceGroup().id, backendAppName, 'CognitiveServicesUser')
@@ -354,6 +519,12 @@ output appInsightsInstrumentationKey string = monitoring.outputs.appInsightsInst
 output appInsightsConnectionString string = monitoring.outputs.appInsightsConnectionString
 output logAnalyticsWorkspaceId string = monitoring.outputs.logAnalyticsWorkspaceId
 
+// Container Apps outputs
+output containerRegistryName string = containerRegistry.outputs.name
+output containerRegistryLoginServer string = containerRegistry.outputs.loginServer
+output containerEnvironmentName string = containerEnvironment.outputs.name
+output workerJobName string = workerJob.outputs.name
+
 // Deployment summary
 output deploymentSummary object = {
   resourceGroup: resourceGroup().name
@@ -363,5 +534,7 @@ output deploymentSummary object = {
   frontendUrl: appService.outputs.frontendAppUrl
   apiDocsUrl: '${appService.outputs.backendAppUrl}/docs'
   appInsightsName: monitoring.outputs.appInsightsName
+  workerJobName: workerJob.outputs.name
+  containerRegistryLoginServer: containerRegistry.outputs.loginServer
 }
 

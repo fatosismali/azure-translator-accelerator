@@ -5,10 +5,13 @@ A production-ready solution for deploying Azure Translator services with a moder
 ## ✨ Features
 
 - **Multi-language Translation**: Support for 137+ languages with auto-detection
-- **Batch Processing**: Translate multiple files from Azure Blob Storage
+- **Batch Processing**: Async queue-based translation for multiple files
+  - Real-time progress tracking
+  - Background worker processing
+  - Scalable architecture
 - **Dynamic Dictionary**: Custom terminology and term preservation
 - **Dual Translation Engine**: Compare Neural Machine Translation (NMT) vs LLM-based translation
-- **Modern UI**: React-based frontend with dark mode support
+- **Modern UI**: React-based frontend with dark mode support and real-time updates
 - **RESTful API**: FastAPI backend with OpenAPI documentation
 - **Azure Native**: Managed Identity, Key Vault integration, Application Insights
 
@@ -55,6 +58,14 @@ bash infra/scripts/deploy.sh dev myapp --yes
 - Backend: `https://<prefix>-dev-api-*.azurewebsites.net`
 - API Docs: `https://<prefix>-dev-api-*.azurewebsites.net/docs`
 
+**Note on Batch Translation:**
+- The backend supports **queue-based async processing** via Azure Queue Storage + Table Storage
+- **Worker auto-deployed**: Azure Container Apps Job with event-driven scaling
+  - Auto-scales from 0 to 10 based on queue depth
+  - Polls queue every 30 seconds
+  - Built and deployed automatically via `deploy.sh`
+- Local testing: Run `python -m app.worker` in a separate terminal
+
 ---
 
 ## 🏠 Local Development
@@ -69,11 +80,19 @@ cp .env.example .env
 # 2. Start frontend (Docker)
 docker-compose up -d frontend
 
-# 3. Start backend (local - avoids Conditional Access issues)
+# 3. Start backend + worker (local - avoids Conditional Access issues)
+
+# Terminal 1: Backend API
 cd src/backend
 source ../../venv/bin/activate
 export $(grep -v '^#' ../../.env | xargs)
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Terminal 2: Background Worker (for batch jobs)
+# Run from project root
+cd <project-root>
+source venv/bin/activate
+PYTHONPATH=$(pwd)/src/backend python -m app.worker
 ```
 
 Access:
@@ -105,8 +124,11 @@ AZURE_TRANSLATOR_KEY=<your-key>
 AZURE_TRANSLATOR_REGION=<region>
 AZURE_TRANSLATOR_ENDPOINT=https://api.cognitive.microsofttranslator.com
 
-# Storage (for local development)
+# Storage (for local development - requires Azure AD roles)
 AZURE_STORAGE_ACCOUNT_NAME=<storage-account-name>
+
+# Batch Processing (queue-based)
+ENABLE_BATCH_QUEUE=true
 
 # Optional: AI Foundry (for LLM translation)
 AZURE_AI_FOUNDRY_ENDPOINT=<endpoint>
@@ -114,6 +136,22 @@ AZURE_AI_FOUNDRY_KEY=<key>
 ```
 
 Get these values after running `deploy.sh` - they're automatically saved to `.env`.
+
+**Required Azure AD Roles** (for local development):
+- `Storage Blob Data Contributor` - Read/write batch files
+- `Storage Queue Data Contributor` - Access job queue
+- `Storage Table Data Contributor` - Track job status
+
+Assign to your Azure account:
+```bash
+STORAGE_NAME="<your-storage-account>"
+STORAGE_ID=$(az storage account show --name $STORAGE_NAME --resource-group <rg> --query id -o tsv)
+USER_EMAIL="<your-email@domain.com>"
+
+az role assignment create --assignee $USER_EMAIL --role "Storage Blob Data Contributor" --scope $STORAGE_ID
+az role assignment create --assignee $USER_EMAIL --role "Storage Queue Data Contributor" --scope $STORAGE_ID
+az role assignment create --assignee $USER_EMAIL --role "Storage Table Data Contributor" --scope $STORAGE_ID
+```
 
 ---
 

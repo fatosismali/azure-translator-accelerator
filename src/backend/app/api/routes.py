@@ -680,12 +680,50 @@ async def get_job_status(
     
     Path parameters:
     - job_id: Job ID to check status for
+    
+    Returns job status including:
+    - Job ID
+    - Status (queued, processing, completed, failed)
+    - Total files
+    - Processing progress (processed_files, failed_files)
+    - Timestamps (created_at, updated_at, completed_at)
     """
     try:
-        status_info = batch_service.get_job_status(job_id)
-        return BatchJobStatusResponse(**status_info)
+        job_status = batch_service.get_job_status(job_id)
+        if not job_status:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job {job_id} not found"
+            )
+        return BatchJobStatusResponse(**job_status)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to get job status: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.get("/batch/jobs", response_model=list[BatchJobStatusResponse])
+async def list_all_jobs(
+    limit: int = 100,
+    batch_service: BatchTranslationService = Depends(get_batch_service),
+) -> list[BatchJobStatusResponse]:
+    """
+    Get all batch translation jobs.
+    
+    Query parameters:
+    - limit: Maximum number of jobs to return (default 100)
+    
+    Returns list of job statuses sorted by most recent first.
+    """
+    try:
+        jobs = batch_service.get_all_jobs(limit=limit)
+        return [BatchJobStatusResponse(**job) for job in jobs]
+    except Exception as e:
+        logger.error(f"Failed to list jobs: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)

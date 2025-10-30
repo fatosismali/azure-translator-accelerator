@@ -10,6 +10,8 @@ from typing import Dict, Any, List, Optional
 from app.services.storage_service import StorageService
 from app.services.queue_service import QueueService
 from app.services.translator_service import TranslatorService
+from app.services.table_job_tracker import get_job_tracker  # Using Table Storage for shared state
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,8 @@ class BatchTranslationService:
         self.storage = storage_service
         self.queue = queue_service
         self.translator = translator_service
+        self.job_tracker = get_job_tracker()
+        self.settings = get_settings()
         logger.info("Batch translation service initialized")
     
     def annotate_text_with_dictionary(self, text: str, dictionary: Dict[str, str]) -> str:
@@ -119,14 +123,59 @@ class BatchTranslationService:
                     'message': 'No text files found in source container'
                 }
             
-            # Process files immediately (without queue for local testing)
-            # For production, use queue-based processing with background workers
-            
             total_files = len(blobs)
+            
+            # Check if we should use queue-based processing
+            use_queue = self.settings.enable_batch_queue if hasattr(self.settings, 'enable_batch_queue') else False
+            
+            if use_queue:
+                # Queue-based processing (asynchronous)
+                logger.info(f"Batch job {job_id} started: Queuing {total_files} files for background processing")
+                
+                # Track the job
+                self.job_tracker.create_job(
+                    job_id=job_id,
+                    total_files=total_files,
+                    source_container=source_container,
+                    target_container=target_container,
+                    target_language=target_language,
+                    source_language=source_language
+                )
+                
+                for blob in blobs:
+                    # Send each file to the queue for background processing
+                    message = {
+                        'job_id': job_id,
+                        'source_container': source_container,
+                        'target_container': target_container,
+                        'source_blob': blob['name'],
+                        'target_language': target_language,
+                        'source_language': source_language,
+                        'dictionary': dictionary
+                    }
+                    self.queue.send_message(message)
+                
+                logger.info(f"Batch job {job_id}: Queued {total_files} files")
+                
+                # Update job status to processing
+                self.job_tracker.update_progress(job_id, status='processing')
+                
+                return {
+                    'job_id': job_id,
+                    'status': 'queued',
+                    'total_files': total_files,
+                    'source_container': source_container,
+                    'target_container': target_container,
+                    'target_language': target_language,
+                    'created_at': datetime.utcnow().isoformat(),
+                    'message': f'Batch job queued with {total_files} files'
+                }
+            
+            # Synchronous processing (for testing/small batches)
+            logger.info(f"Batch job {job_id} started: Processing {total_files} files synchronously")
+            
             processed_files = 0
             failed_files = 0
-            
-            logger.info(f"Batch job {job_id} started: Processing {total_files} files")
             
             for blob in blobs:
                 try:
@@ -226,6 +275,7 @@ class BatchTranslationService:
             source_blob = message_content['source_blob']
             target_language = message_content['target_language']
             source_language = message_content.get('source_language')
+            dictionary = message_content.get('dictionary')
             
             logger.info(f"Processing job {job_id}: {source_blob}")
             
@@ -234,11 +284,18 @@ class BatchTranslationService:
             
             if not content.strip():
                 logger.warning(f"Empty file: {source_blob}")
+                self.job_tracker.update_progress(job_id, failed=1)
                 return
+            
+            # Annotate text with dictionary terms if provided
+            annotated_content = self.annotate_text_with_dictionary(content, dictionary) if dictionary else content
+            
+            if dictionary:
+                logger.info(f"Applied {len(dictionary)} dictionary terms to {source_blob}")
             
             # Translate with NMT
             nmt_result = await self.translator.translate(
-                text=content,
+                text=annotated_content,
                 to=[target_language],
                 from_lang=source_language
             )
@@ -247,7 +304,7 @@ class BatchTranslationService:
             
             # Translate with LLM
             llm_result = await self.translator.translate_with_llm(
-                text=content,
+                text=annotated_content,
                 to=[target_language],
                 from_lang=source_language,
                 model="gpt-4o-mini"
@@ -265,13 +322,17 @@ class BatchTranslationService:
             self.storage.write_blob(target_container, nmt_blob_name, nmt_translation)
             self.storage.write_blob(target_container, llm_blob_name, llm_translation)
             
+            # Update job progress
+            self.job_tracker.update_progress(job_id, processed=1)
             logger.info(f"Successfully processed {source_blob}")
         
         except Exception as e:
+            # Update job progress with failure
+            self.job_tracker.update_progress(job_id, failed=1)
             logger.error(f"Failed to process message: {str(e)}")
             raise
 
-    def get_job_status(self, job_id: str) -> Dict[str, Any]:
+    def get_job_status(self, job_id: str) -> Optional[Dict[str, Any]]:
         """
         Get status of a batch job.
         
@@ -279,18 +340,26 @@ class BatchTranslationService:
             job_id: Job ID
             
         Returns:
-            Job status information
+            Job status information or None if not found
         """
-        # Get queue length (approximate pending jobs)
-        queue_length = self.queue.get_queue_length()
+        status = self.job_tracker.get_status(job_id)
+        if status:
+            logger.info(f"Job {job_id}: {status['processed_files']}/{status['total_files']} processed")
+        else:
+            logger.warning(f"Job {job_id}: not found in tracker")
+        return status
+    
+    def get_all_jobs(self, limit: int = 100) -> list[Dict[str, Any]]:
+        """
+        Get all batch jobs.
         
-        # In a production system, you'd track job status in a database
-        # For now, we'll return queue status
-        return {
-            'job_id': job_id,
-            'queue_length': queue_length,
-            'status': 'processing' if queue_length > 0 else 'completed'
-        }
+        Args:
+            limit: Maximum number of jobs to return
+            
+        Returns:
+            List of job status dictionaries
+        """
+        return self.job_tracker.get_all_jobs(limit=limit)
 
     def list_translated_files(self, container_name: str) -> Dict[str, List[Dict[str, Any]]]:
         """

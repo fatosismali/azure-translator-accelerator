@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "4715836528669946918"
+      "templateHash": "2047317399529541714"
     }
   },
   "parameters": {
@@ -95,7 +95,10 @@
     "frontendAppName": "[format('{0}-web-{1}', variables('resourceNamePrefix'), parameters('uniqueSuffix'))]",
     "storageName": "[take(replace(format('{0}{1}st{2}', parameters('resourcePrefix'), parameters('environment'), parameters('uniqueSuffix')), '-', ''), 24)]",
     "appInsightsName": "[format('{0}-ai', variables('resourceNamePrefix'))]",
-    "logAnalyticsName": "[format('{0}-logs', variables('resourceNamePrefix'))]"
+    "logAnalyticsName": "[format('{0}-logs', variables('resourceNamePrefix'))]",
+    "containerRegistryName": "[take(replace(format('{0}{1}acr{2}', parameters('resourcePrefix'), parameters('environment'), parameters('uniqueSuffix')), '-', ''), 50)]",
+    "containerEnvironmentName": "[format('{0}-cae', variables('resourceNamePrefix'))]",
+    "workerJobName": "[format('{0}-worker-job', variables('resourceNamePrefix'))]"
   },
   "resources": [
     {
@@ -244,6 +247,76 @@
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', 'appservice-deployment')]",
         "[resourceId('Microsoft.Resources/deployments', 'storage-deployment')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceGroup().id, variables('workerJobName'), 'StorageBlobDataContributor')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+        "principalId": "[reference(resourceId('Microsoft.Resources/deployments', 'worker-job-deployment'), '2025-04-01').outputs.principalId.value]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'storage-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'worker-job-deployment')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceGroup().id, variables('workerJobName'), 'StorageQueueDataContributor')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '974c5e8b-45b9-4653-ba55-5f855dd0fb88')]",
+        "principalId": "[reference(resourceId('Microsoft.Resources/deployments', 'worker-job-deployment'), '2025-04-01').outputs.principalId.value]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'storage-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'worker-job-deployment')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceGroup().id, variables('workerJobName'), 'StorageTableDataContributor')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3')]",
+        "principalId": "[reference(resourceId('Microsoft.Resources/deployments', 'worker-job-deployment'), '2025-04-01').outputs.principalId.value]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'storage-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'worker-job-deployment')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceGroup().id, variables('workerJobName'), 'AcrPull')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+        "principalId": "[reference(resourceId('Microsoft.Resources/deployments', 'worker-job-deployment'), '2025-04-01').outputs.principalId.value]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'container-registry-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'worker-job-deployment')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceGroup().id, variables('workerJobName'), 'KeyVaultSecretsUser')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')]",
+        "principalId": "[reference(resourceId('Microsoft.Resources/deployments', 'worker-job-deployment'), '2025-04-01').outputs.principalId.value]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'keyvault-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'worker-job-deployment')]"
       ]
     },
     {
@@ -1093,6 +1166,491 @@
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
+      "name": "container-registry-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('containerRegistryName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "sku": "[if(equals(parameters('environment'), 'dev'), createObject('value', 'Basic'), createObject('value', 'Standard'))]",
+          "adminUserEnabled": {
+            "value": false
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "1909544252195529043"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Container Registry"
+              }
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Location for the resources"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags for the resources"
+              }
+            },
+            "sku": {
+              "type": "string",
+              "defaultValue": "Basic",
+              "allowedValues": [
+                "Basic",
+                "Standard",
+                "Premium"
+              ],
+              "metadata": {
+                "description": "SKU for the Container Registry"
+              }
+            },
+            "adminUserEnabled": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Enable admin user"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ContainerRegistry/registries",
+              "apiVersion": "2023-01-01-preview",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "[parameters('sku')]"
+              },
+              "properties": {
+                "adminUserEnabled": "[parameters('adminUserEnabled')]",
+                "publicNetworkAccess": "Enabled",
+                "zoneRedundancy": "Disabled"
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('name'))]"
+            },
+            "name": {
+              "type": "string",
+              "value": "[parameters('name')]"
+            },
+            "loginServer": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('name')), '2023-01-01-preview').loginServer]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "container-environment-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('containerEnvironmentName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "logAnalyticsWorkspaceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.logAnalyticsWorkspaceId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "2811872832992068162"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Container Apps Environment"
+              }
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Location for the resources"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags for the resources"
+              }
+            },
+            "logAnalyticsWorkspaceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Log Analytics Workspace ID"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.App/managedEnvironments",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "appLogsConfiguration": {
+                  "destination": "log-analytics",
+                  "logAnalyticsConfiguration": {
+                    "customerId": "[reference(parameters('logAnalyticsWorkspaceId'), '2021-06-01').customerId]",
+                    "sharedKey": "[listKeys(parameters('logAnalyticsWorkspaceId'), '2021-06-01').primarySharedKey]"
+                  }
+                },
+                "zoneRedundant": false
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.App/managedEnvironments', parameters('name'))]"
+            },
+            "name": {
+              "type": "string",
+              "value": "[parameters('name')]"
+            },
+            "defaultDomain": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.App/managedEnvironments', parameters('name')), '2023-05-01').defaultDomain]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'monitoring-deployment')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "worker-job-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('workerJobName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "environmentId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-environment-deployment'), '2025-04-01').outputs.id.value]"
+          },
+          "containerImage": {
+            "value": "[format('{0}/translator-worker:latest', reference(resourceId('Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.loginServer.value)]"
+          },
+          "containerRegistryServer": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.loginServer.value]"
+          },
+          "enableManagedIdentity": {
+            "value": true
+          },
+          "triggerType": {
+            "value": "Event"
+          },
+          "queueName": {
+            "value": "translation-jobs"
+          },
+          "queueLength": {
+            "value": 5
+          },
+          "minExecutions": {
+            "value": 0
+          },
+          "maxExecutions": {
+            "value": 10
+          },
+          "pollingInterval": {
+            "value": 30
+          },
+          "environmentVariables": {
+            "value": [
+              {
+                "name": "AZURE_TRANSLATOR_KEY",
+                "value": "[reference(resourceId('Microsoft.Resources/deployments', 'translator-deployment'), '2025-04-01').outputs.primaryKey.value]"
+              },
+              {
+                "name": "AZURE_TRANSLATOR_ENDPOINT",
+                "value": "[reference(resourceId('Microsoft.Resources/deployments', 'translator-deployment'), '2025-04-01').outputs.endpoint.value]"
+              },
+              {
+                "name": "AZURE_TRANSLATOR_REGION",
+                "value": "[parameters('location')]"
+              },
+              {
+                "name": "AZURE_STORAGE_ACCOUNT_NAME",
+                "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage-deployment'), '2025-04-01').outputs.name.value]"
+              },
+              {
+                "name": "AZURE_KEY_VAULT_URL",
+                "value": "[reference(resourceId('Microsoft.Resources/deployments', 'keyvault-deployment'), '2025-04-01').outputs.uri.value]"
+              },
+              {
+                "name": "ENVIRONMENT",
+                "value": "[parameters('environment')]"
+              },
+              {
+                "name": "ENABLE_BATCH_QUEUE",
+                "value": "true"
+              },
+              {
+                "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.appInsightsConnectionString.value]"
+              }
+            ]
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "11972933915032794719"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Container Apps Job"
+              }
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Location for the resources"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags for the resources"
+              }
+            },
+            "environmentId": {
+              "type": "string",
+              "metadata": {
+                "description": "Container Apps Environment ID"
+              }
+            },
+            "containerImage": {
+              "type": "string",
+              "metadata": {
+                "description": "Container image"
+              }
+            },
+            "containerRegistryServer": {
+              "type": "string",
+              "metadata": {
+                "description": "Container registry server"
+              }
+            },
+            "enableManagedIdentity": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Enable managed identity"
+              }
+            },
+            "environmentVariables": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Environment variables"
+              }
+            },
+            "triggerType": {
+              "type": "string",
+              "defaultValue": "Event",
+              "allowedValues": [
+                "Schedule",
+                "Event",
+                "Manual"
+              ],
+              "metadata": {
+                "description": "Trigger type (Schedule or Event)"
+              }
+            },
+            "cronExpression": {
+              "type": "string",
+              "defaultValue": "*/5 * * * *",
+              "metadata": {
+                "description": "Cron expression for scheduled jobs"
+              }
+            },
+            "pollingInterval": {
+              "type": "int",
+              "defaultValue": 30,
+              "metadata": {
+                "description": "Polling interval in seconds (for event-driven jobs)"
+              }
+            },
+            "minExecutions": {
+              "type": "int",
+              "defaultValue": 0,
+              "metadata": {
+                "description": "Min executions (for event-driven scaling)"
+              }
+            },
+            "maxExecutions": {
+              "type": "int",
+              "defaultValue": 10,
+              "metadata": {
+                "description": "Max executions (for event-driven scaling)"
+              }
+            },
+            "queueConnectionSecretName": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Azure Queue Storage connection string secret name"
+              }
+            },
+            "queueName": {
+              "type": "string",
+              "defaultValue": "translation-jobs",
+              "metadata": {
+                "description": "Queue name to monitor"
+              }
+            },
+            "queueLength": {
+              "type": "int",
+              "defaultValue": 5,
+              "metadata": {
+                "description": "Queue length threshold for scaling"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.App/jobs",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": "[if(parameters('enableManagedIdentity'), createObject('type', 'SystemAssigned'), null())]",
+              "properties": {
+                "environmentId": "[parameters('environmentId')]",
+                "configuration": {
+                  "triggerType": "[parameters('triggerType')]",
+                  "replicaTimeout": 1800,
+                  "replicaRetryLimit": 3,
+                  "manualTriggerConfig": "[if(equals(parameters('triggerType'), 'Manual'), createObject('replicaCompletionCount', 1, 'parallelism', 1), null())]",
+                  "scheduleTriggerConfig": "[if(equals(parameters('triggerType'), 'Schedule'), createObject('cronExpression', parameters('cronExpression'), 'parallelism', 1, 'replicaCompletionCount', 1), null())]",
+                  "eventTriggerConfig": "[if(equals(parameters('triggerType'), 'Event'), createObject('replicaCompletionCount', 1, 'parallelism', 1, 'scale', createObject('minExecutions', parameters('minExecutions'), 'maxExecutions', parameters('maxExecutions'), 'pollingInterval', parameters('pollingInterval'), 'rules', createArray(createObject('name', 'queue-scaling', 'type', 'azure-queue', 'metadata', createObject('queueName', parameters('queueName'), 'queueLength', string(parameters('queueLength')), 'connectionFromEnv', 'AZURE_STORAGE_CONNECTION_STRING'))))), null())]",
+                  "registries": [
+                    {
+                      "server": "[parameters('containerRegistryServer')]",
+                      "identity": "system"
+                    }
+                  ]
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "worker",
+                      "image": "[parameters('containerImage')]",
+                      "resources": {
+                        "cpu": "[json('0.5')]",
+                        "memory": "1Gi"
+                      },
+                      "env": "[parameters('environmentVariables')]"
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.App/jobs', parameters('name'))]"
+            },
+            "name": {
+              "type": "string",
+              "value": "[parameters('name')]"
+            },
+            "principalId": {
+              "type": "string",
+              "value": "[if(parameters('enableManagedIdentity'), reference(resourceId('Microsoft.App/jobs', parameters('name')), '2023-05-01', 'full').identity.principalId, '')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'container-environment-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'container-registry-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'keyvault-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'monitoring-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'storage-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'translator-deployment')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
       "name": "appservice-deployment",
       "properties": {
         "expressionEvaluationOptions": {
@@ -1548,6 +2106,22 @@
       "type": "string",
       "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.logAnalyticsWorkspaceId.value]"
     },
+    "containerRegistryName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.name.value]"
+    },
+    "containerRegistryLoginServer": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.loginServer.value]"
+    },
+    "containerEnvironmentName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-environment-deployment'), '2025-04-01').outputs.name.value]"
+    },
+    "workerJobName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'worker-job-deployment'), '2025-04-01').outputs.name.value]"
+    },
     "deploymentSummary": {
       "type": "object",
       "value": {
@@ -1557,7 +2131,9 @@
         "backendUrl": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2025-04-01').outputs.backendAppUrl.value]",
         "frontendUrl": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2025-04-01').outputs.frontendAppUrl.value]",
         "apiDocsUrl": "[format('{0}/docs', reference(resourceId('Microsoft.Resources/deployments', 'appservice-deployment'), '2025-04-01').outputs.backendAppUrl.value)]",
-        "appInsightsName": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.appInsightsName.value]"
+        "appInsightsName": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.appInsightsName.value]",
+        "workerJobName": "[reference(resourceId('Microsoft.Resources/deployments', 'worker-job-deployment'), '2025-04-01').outputs.name.value]",
+        "containerRegistryLoginServer": "[reference(resourceId('Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.loginServer.value]"
       }
     }
   }

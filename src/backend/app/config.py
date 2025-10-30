@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     enable_caching: bool = Field(default=False, description="Enable caching")
     enable_transliteration: bool = Field(default=True, description="Enable transliteration")
     enable_dictionary: bool = Field(default=True, description="Enable dictionary lookup")
+    enable_batch_queue: bool = Field(default=True, description="Enable queue-based batch processing")
     
     # Rate Limiting
     rate_limit_enabled: bool = Field(default=True, description="Enable rate limiting")

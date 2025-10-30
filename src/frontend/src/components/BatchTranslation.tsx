@@ -116,13 +116,46 @@ export default function BatchTranslation() {
     },
   })
 
-  // Poll job status
+  // Poll job status automatically for queued jobs
+  useEffect(() => {
+    if (!jobId || !jobStatus) return
+    
+    // If job is completed or failed, stop polling
+    if (jobStatus.status === 'completed' || jobStatus.status === 'failed') {
+      return
+    }
+    
+    // Poll every 3 seconds for queued/processing jobs
+    const intervalId = setInterval(async () => {
+      try {
+        const status = await translatorAPI.getBatchJobStatus(jobId)
+        setJobStatus(status)
+        
+        // Stop polling if complete or failed
+        if (status.status === 'completed' || status.status === 'failed') {
+          clearInterval(intervalId)
+          trackEvent('Batch_Job_Completed', {
+            jobId: status.job_id,
+            status: status.status,
+            processedFiles: status.processed_files,
+            failedFiles: status.failed_files,
+          })
+        }
+      } catch (error) {
+        console.error('Error polling job status:', error)
+      }
+    }, 3000) // Poll every 3 seconds
+    
+    return () => clearInterval(intervalId)
+  }, [jobId, jobStatus?.status])
+
+  // Manual poll job status
   const checkStatusMutation = useMutation({
     mutationFn: async (id: string) => {
       return translatorAPI.getBatchJobStatus(id)
     },
     onSuccess: (data) => {
-      setJobStatus((prev: any) => ({ ...prev, ...data }))
+      setJobStatus(data)
     },
   })
 
@@ -576,6 +609,33 @@ export default function BatchTranslation() {
             )}
           </div>
 
+          {/* Progress bar for queued/processing jobs */}
+          {(jobStatus.status === 'queued' || jobStatus.status === 'processing') && jobStatus.total_files > 0 && (
+            <div style={{ marginTop: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                <span>🔄 Processing... {jobStatus.processed_files || 0}/{jobStatus.total_files}</span>
+                <span>{Math.round(((jobStatus.processed_files || 0) / jobStatus.total_files) * 100)}%</span>
+              </div>
+              <div style={{
+                width: '100%',
+                height: '8px',
+                backgroundColor: '#e0e0e0',
+                borderRadius: '4px',
+                overflow: 'hidden',
+              }}>
+                <div style={{
+                  width: `${((jobStatus.processed_files || 0) / jobStatus.total_files) * 100}%`,
+                  height: '100%',
+                  backgroundColor: 'var(--azure-blue)',
+                  transition: 'width 0.5s ease',
+                }} />
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '0.5rem' }}>
+                ⏱ Auto-refreshing every 3 seconds...
+              </div>
+            </div>
+          )}
+
           {jobStatus.status === 'completed' && (
             <div
               style={{
@@ -597,6 +657,27 @@ export default function BatchTranslation() {
                 </ul>
                 Go to the "📊 Review" tab to view and rate translations.
               </div>
+            </div>
+          )}
+
+          {jobStatus.status === 'failed' && (
+            <div
+              style={{
+                marginTop: '1rem',
+                padding: '1rem',
+                background: '#f8d7da',
+                color: '#721c24',
+                borderRadius: 'var(--border-radius)',
+              }}
+            >
+              <div style={{ marginBottom: '0.5rem' }}>
+                <strong>❌ Batch translation failed</strong>
+              </div>
+              {jobStatus.error && (
+                <div style={{ fontSize: '0.875rem' }}>
+                  <strong>Error:</strong> {jobStatus.error}
+                </div>
+              )}
             </div>
           )}
         </div>

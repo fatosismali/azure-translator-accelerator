@@ -74,8 +74,6 @@ services:
     volumes:
       - ./src/frontend:/app
       - /app/node_modules
-    depends_on:
-      - backend
     restart: unless-stopped
     networks:
       - translator-network
