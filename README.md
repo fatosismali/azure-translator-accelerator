@@ -266,21 +266,7 @@ az keyvault update --name <keyvault-name> --resource-group <resource-group> --pu
 
 ### Components
 
-```
-┌─────────────────┐     ┌─────────────────┐
-│   React         │────▶│   FastAPI       │
-│   Frontend      │     │   Backend       │
-│   (Port 3000)   │     │   (Port 8000)   │
-└─────────────────┘     └─────────────────┘
-                               │
-                ┌──────────────┼──────────────┐
-                │              │              │
-         ┌──────▼─────┐ ┌─────▼──────┐ ┌────▼────┐
-         │  Azure     │ │   Azure    │ │  Azure  │
-         │ Translator │ │   Blob     │ │   AI    │
-         │  Service   │ │  Storage   │ │ Foundry │
-         └────────────┘ └────────────┘ └─────────┘
-```
+![Architecture Diagram](images/arch.png)
 
 ### Authentication
 
